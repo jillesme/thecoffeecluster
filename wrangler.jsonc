@@ -46,7 +46,15 @@
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	"vars": { "NEXT_PUBLIC_R2_URL": "https://img.thecoffeecluster.com" }
+	"vars": {
+		"NEXT_PUBLIC_R2_URL": "https://img.thecoffeecluster.com"
+	},
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "e41e091c62c94bc2a52b67e0d099c272"
+		}
+	]
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
