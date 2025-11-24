@@ -37,6 +37,11 @@ interface CoffeeBeansGridProps {
   initialPagination: PaginationInfo;
 }
 
+interface BeansApiResponse {
+  beans: CoffeeBean[];
+  pagination: PaginationInfo;
+}
+
 export function CoffeeBeansGrid({
   initialBeans,
   initialPagination,
@@ -57,7 +62,7 @@ export function CoffeeBeansGrid({
         const response = await fetch(`/api/beans?page=${page}`);
         if (!response.ok) throw new Error('Failed to fetch beans');
 
-        const data = await response.json();
+        const data = await response.json() as BeansApiResponse;
         const endTime = performance.now();
         const duration = Math.round(endTime - startTime);
 
