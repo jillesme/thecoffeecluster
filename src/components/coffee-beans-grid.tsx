@@ -35,19 +35,23 @@ interface PaginationInfo {
 interface CoffeeBeansGridProps {
   initialBeans: CoffeeBean[];
   initialPagination: PaginationInfo;
+  initialIsUsingHyperdrive: boolean;
 }
 
 interface BeansApiResponse {
   beans: CoffeeBean[];
   pagination: PaginationInfo;
+  isUsingHyperdrive: boolean;
 }
 
 export function CoffeeBeansGrid({
   initialBeans,
   initialPagination,
+  initialIsUsingHyperdrive,
 }: CoffeeBeansGridProps) {
   const [beans, setBeans] = useState<CoffeeBean[]>(initialBeans);
   const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
+  const [isUsingHyperdrive, setIsUsingHyperdrive] = useState<boolean>(initialIsUsingHyperdrive);
   const [isPending, startTransition] = useTransition();
 
   const handlePageChange = async (page: number) => {
@@ -68,10 +72,12 @@ export function CoffeeBeansGrid({
 
         setBeans(data.beans);
         setPagination(data.pagination);
+        setIsUsingHyperdrive(data.isUsingHyperdrive);
 
-        // Show success toast with request time
+        // Show success toast with request time and connection type
+        const connectionType = data.isUsingHyperdrive ? 'with Hyperdrive' : 'without Hyperdrive';
         toast.success(`Loaded page ${page}`, {
-          description: `Request took ${duration}ms`,
+          description: `Request took ${duration}ms (${connectionType})`,
         });
       } catch (error) {
         console.error('Error fetching beans:', error);

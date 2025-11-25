@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
     const currentPage = Math.max(1, page);
     const offset = (currentPage - 1) * BEANS_PER_PAGE;
 
-    const db = getDb();
+    // Read cookie to determine which connection to use
+    const useHyperdrive = request.cookies.get('use-hyperdrive')?.value === 'true';
+    const { db, isUsingHyperdrive } = getDb(useHyperdrive);
 
     // Get total count for pagination
     const [{ value: totalCount }] = await db
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
         totalCount,
         perPage: BEANS_PER_PAGE,
       },
+      isUsingHyperdrive,
     });
   } catch (error) {
     console.error('Error fetching beans:', error);

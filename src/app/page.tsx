@@ -2,11 +2,14 @@ import { getDb } from '@/db';
 import { coffeeBeans } from '@/db/schema';
 import { count } from 'drizzle-orm';
 import { CoffeeBeansGrid } from '@/components/coffee-beans-grid';
+import { cookies } from 'next/headers';
 
 const BEANS_PER_PAGE = 6;
 
 export default async function Home() {
-	const db = getDb();
+	const cookieStore = await cookies();
+	const useHyperdrive = cookieStore.get('use-hyperdrive')?.value === 'true';
+	const { db, isUsingHyperdrive } = getDb(useHyperdrive);
 
 	// Fetch initial page server-side
 	const [{ value: totalCount }] = await db
@@ -44,6 +47,7 @@ export default async function Home() {
 							totalCount,
 							perPage: BEANS_PER_PAGE,
 						}}
+						initialIsUsingHyperdrive={isUsingHyperdrive}
 					/>
 				</main>
 			</div>
