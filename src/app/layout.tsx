@@ -39,7 +39,7 @@ export default function RootLayout({
 				>
 					<HyperdriveToggle />
 					{children}
-					<Toaster />
+					<Toaster position="top-center" duration={1500} />
 				</ThemeProvider>
 			</body>
 		</html>
