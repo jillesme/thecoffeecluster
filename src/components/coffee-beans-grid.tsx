@@ -35,7 +35,6 @@ interface PaginationInfo {
 interface CoffeeBeansGridProps {
   initialBeans: CoffeeBean[];
   initialPagination: PaginationInfo;
-  initialIsUsingHyperdrive: boolean;
 }
 
 interface BeansApiResponse {
@@ -47,11 +46,9 @@ interface BeansApiResponse {
 export function CoffeeBeansGrid({
   initialBeans,
   initialPagination,
-  initialIsUsingHyperdrive,
 }: CoffeeBeansGridProps) {
   const [beans, setBeans] = useState<CoffeeBean[]>(initialBeans);
   const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
-  const [isUsingHyperdrive, setIsUsingHyperdrive] = useState<boolean>(initialIsUsingHyperdrive);
   const [isPending, startTransition] = useTransition();
 
   const handlePageChange = async (page: number) => {
@@ -72,7 +69,6 @@ export function CoffeeBeansGrid({
 
         setBeans(data.beans);
         setPagination(data.pagination);
-        setIsUsingHyperdrive(data.isUsingHyperdrive);
 
         // Show success toast with request time and connection type
         const connectionType = data.isUsingHyperdrive ? 'with Hyperdrive' : 'without Hyperdrive';

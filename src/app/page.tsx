@@ -47,7 +47,6 @@ export default async function Home() {
 							totalCount,
 							perPage: BEANS_PER_PAGE,
 						}}
-						initialIsUsingHyperdrive={isUsingHyperdrive}
 					/>
 				</main>
 			</div>
