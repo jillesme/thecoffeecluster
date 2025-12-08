@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { CoffeeBeanCard } from './coffee-bean-card';
 import { CoffeeBeanCardSkeleton } from './coffee-bean-card-skeleton';
 import { toast } from 'sonner';
@@ -90,19 +90,6 @@ export function CoffeeBeansGrid({
       });
     }
   };
-
-  // Listen for Hyperdrive toggle changes and auto-refresh
-  useEffect(() => {
-    const checkForToggleChange = () => {
-      // This will trigger a re-fetch when the cookie changes
-      const currentPage = pagination.currentPage;
-      fetchPage(currentPage, true);
-    };
-
-    // Listen for custom event dispatched by the toggle
-    window.addEventListener('hyperdrive-toggle', checkForToggleChange);
-    return () => window.removeEventListener('hyperdrive-toggle', checkForToggleChange);
-  }, [pagination.currentPage]);
 
   const handlePageChange = async (page: number) => {
     if (page === pagination.currentPage || page < 1 || page > pagination.totalPages) {

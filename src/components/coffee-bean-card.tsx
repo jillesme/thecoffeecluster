@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface CoffeeBeanCardProps {
   id: number;
@@ -18,6 +19,7 @@ const ROAST_COLORS = {
 };
 
 export function CoffeeBeanCard({
+  id,
   name,
   description,
   imageKey,
@@ -33,7 +35,10 @@ export function CoffeeBeanCard({
     : `https://placehold.co/400x300/8b7355/ffffff?text=${encodeURIComponent(name)}`;
 
   return (
-    <div className="group overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <Link
+      href={`/beans/${id}`}
+      className="group block overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-stone-300"
+    >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
         <Image
@@ -50,7 +55,7 @@ export function CoffeeBeanCard({
       <div className="p-4">
         {/* Name and Price */}
         <div className="mb-2 flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-lg text-stone-900 leading-tight">
+          <h3 className="font-semibold text-lg text-stone-900 leading-tight group-hover:text-stone-700">
             {name}
           </h3>
           <span className="text-lg font-bold text-stone-900 whitespace-nowrap">
@@ -88,6 +93,6 @@ export function CoffeeBeanCard({
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
