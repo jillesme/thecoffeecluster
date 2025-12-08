@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { CoffeeBeanCard } from './coffee-bean-card';
 import { CoffeeBeanCardSkeleton } from './coffee-bean-card-skeleton';
 import { toast } from 'sonner';
+import { useLatencyStore } from '@/lib/latency-store';
 import {
   Pagination,
   PaginationContent,
@@ -41,6 +42,7 @@ interface BeansApiResponse {
   beans: CoffeeBean[];
   pagination: PaginationInfo;
   isUsingHyperdrive: boolean;
+  dbDurationMs: number;
 }
 
 export function CoffeeBeansGrid({
@@ -50,6 +52,57 @@ export function CoffeeBeansGrid({
   const [beans, setBeans] = useState<CoffeeBean[]>(initialBeans);
   const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
   const [isPending, startTransition] = useTransition();
+  const addRecord = useLatencyStore((state) => state.addRecord);
+
+  // Fetch data for a specific page
+  const fetchPage = async (page: number, showToast = true) => {
+    const startTime = performance.now();
+
+    try {
+      const response = await fetch(`/api/beans?page=${page}`);
+      if (!response.ok) throw new Error('Failed to fetch beans');
+
+      const data = await response.json() as BeansApiResponse;
+      const endTime = performance.now();
+      const totalMs = Math.round(endTime - startTime);
+
+      setBeans(data.beans);
+      setPagination(data.pagination);
+
+      // Record latency stats
+      addRecord({
+        totalMs,
+        dbMs: data.dbDurationMs,
+        isHyperdrive: data.isUsingHyperdrive,
+      });
+
+      // Show success toast with request time and connection type
+      if (showToast) {
+        const connectionType = data.isUsingHyperdrive ? 'Hyperdrive' : 'Direct';
+        toast.success(`Loaded page ${page}`, {
+          description: `${data.dbDurationMs}ms db / ${totalMs}ms total (${connectionType})`,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching beans:', error);
+      toast.error('Failed to load coffee beans', {
+        description: 'Please try again',
+      });
+    }
+  };
+
+  // Listen for Hyperdrive toggle changes and auto-refresh
+  useEffect(() => {
+    const checkForToggleChange = () => {
+      // This will trigger a re-fetch when the cookie changes
+      const currentPage = pagination.currentPage;
+      fetchPage(currentPage, true);
+    };
+
+    // Listen for custom event dispatched by the toggle
+    window.addEventListener('hyperdrive-toggle', checkForToggleChange);
+    return () => window.removeEventListener('hyperdrive-toggle', checkForToggleChange);
+  }, [pagination.currentPage]);
 
   const handlePageChange = async (page: number) => {
     if (page === pagination.currentPage || page < 1 || page > pagination.totalPages) {
@@ -57,30 +110,7 @@ export function CoffeeBeansGrid({
     }
 
     startTransition(async () => {
-      const startTime = performance.now();
-
-      try {
-        const response = await fetch(`/api/beans?page=${page}`);
-        if (!response.ok) throw new Error('Failed to fetch beans');
-
-        const data = await response.json() as BeansApiResponse;
-        const endTime = performance.now();
-        const duration = Math.round(endTime - startTime);
-
-        setBeans(data.beans);
-        setPagination(data.pagination);
-
-        // Show success toast with request time and connection type
-        const connectionType = data.isUsingHyperdrive ? 'with Hyperdrive' : 'without Hyperdrive';
-        toast.success(`Loaded page ${page}`, {
-          description: `Request took ${duration}ms (${connectionType})`,
-        });
-      } catch (error) {
-        console.error('Error fetching beans:', error);
-        toast.error('Failed to load coffee beans', {
-          description: 'Please try again',
-        });
-      }
+      await fetchPage(page);
     });
   };
 

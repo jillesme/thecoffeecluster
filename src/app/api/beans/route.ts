@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     const useHyperdrive = request.cookies.get('use-hyperdrive')?.value === 'true';
     const { db, isUsingHyperdrive } = getDb(useHyperdrive);
 
+    // Measure database query time (using Date.now() for Cloudflare Workers compatibility)
+    const dbStartTime = Date.now();
+
     // Get total count for pagination
     const [{ value: totalCount }] = await db
       .select({ value: count() })
@@ -30,6 +33,9 @@ export async function GET(request: NextRequest) {
       .limit(BEANS_PER_PAGE)
       .offset(offset);
 
+    const dbEndTime = Date.now();
+    const dbDurationMs = dbEndTime - dbStartTime;
+
     const totalPages = Math.ceil(totalCount / BEANS_PER_PAGE);
 
     return NextResponse.json({
@@ -41,6 +47,7 @@ export async function GET(request: NextRequest) {
         perPage: BEANS_PER_PAGE,
       },
       isUsingHyperdrive,
+      dbDurationMs,
     });
   } catch (error) {
     console.error('Error fetching beans:', error);

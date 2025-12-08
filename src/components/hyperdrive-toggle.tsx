@@ -17,6 +17,8 @@ export function HyperdriveToggle() {
 	const handleToggle = (pressed: boolean) => {
 		setIsEnabled(pressed);
 		Cookies.set('use-hyperdrive', pressed ? 'true' : 'false', { expires: 365 });
+		// Dispatch custom event to trigger auto-refresh in CoffeeBeansGrid
+		window.dispatchEvent(new CustomEvent('hyperdrive-toggle'));
 	};
 
 	return (
