@@ -4,6 +4,7 @@ A sample application using Next.js, PlanetScale Postgres and Cloudflare Hyperdri
 
 ## YouTube
 
-Watch the video here [https://www.youtube.com/watch?v=Xps8IAlZ5a8](https://www.youtube.com/watch?v=Xps8IAlZ5a8)
+Watch the video here [<img src="https://img.youtube.com/vi/Xps8IAlZ5a8/0.jpg">](https://youtu.be/Xps8IAlZ5a8 "Globally Fast Applications with Cloudflare Hyperdrive and PlanetScale
+")
 
 
