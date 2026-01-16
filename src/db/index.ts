@@ -5,15 +5,16 @@ import * as schema from './schema';
 // Database connection that works both at build time and runtime
 // - Build time: Uses DATABASE_URL environment variable
 // - Runtime (Cloudflare Workers): Uses Hyperdrive for optimized edge connections (if enabled)
-export function getDb(useHyperdrive = true) {
+export async function getDb(useHyperdrive = true) {
   let connectionString: string;
   let isUsingHyperdrive = false;
 
   if (useHyperdrive) {
     try {
       // Try to get Hyperdrive connection string (only available at runtime)
-      const context = getCloudflareContext();
-      connectionString = context.env.HYPERDRIVE.connectionString;
+      // Using { async: true } avoids errors during deploy/build
+      const { env } = await getCloudflareContext({ async: true });
+      connectionString = env.HYPERDRIVE.connectionString;
       isUsingHyperdrive = true;
     } catch {
       // Fall back to DATABASE_URL for build time or local development

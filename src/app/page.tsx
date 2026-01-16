@@ -10,7 +10,7 @@ const BEANS_PER_PAGE = 6;
 export default async function Home() {
 	const cookieStore = await cookies();
 	const useHyperdrive = cookieStore.get('use-hyperdrive')?.value === 'true';
-	const { db } = getDb(useHyperdrive);
+	const { db } = await getDb(useHyperdrive);
 
 	// Fetch initial page server-side
 	const [{ value: totalCount }] = await db
