@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Read cookie to determine which connection to use
     const useHyperdrive = request.cookies.get('use-hyperdrive')?.value === 'true';
-    const { db, isUsingHyperdrive } = getDb(useHyperdrive);
+    const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
     // Measure database query time (using Date.now() for Cloudflare Workers compatibility)
     const dbStartTime = Date.now();

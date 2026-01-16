@@ -20,7 +20,7 @@ export async function GET(
 
     // Read cookie to determine which connection to use
     const useHyperdrive = request.cookies.get('use-hyperdrive')?.value === 'true';
-    const { db, isUsingHyperdrive } = getDb(useHyperdrive);
+    const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
     // Measure database query time
     const dbStartTime = Date.now();
