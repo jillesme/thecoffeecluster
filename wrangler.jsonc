@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "the-coffee-cluster",
 	"main": ".open-next/worker.js",
-	"compatibility_date": "2026-01-12",
+	"compatibility_date": "2026-01-27",
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"
@@ -54,7 +54,11 @@
 			"binding": "HYPERDRIVE",
 			"id": "2fd136c2498f4a60a780fa70d61ec8b2",
 		}
-	]
+	],
+	"placement": {
+		// Match to your PlanetScale region, for example "gcp:us-east4" or "aws:us-east-1"
+		"region": "aws:eu-central-1",
+	},
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
