@@ -151,8 +151,8 @@ export function CoffeeBeansGrid({
           ))
         ) : (
           // Show actual beans when not loading
-          beans.map((bean) => (
-            <CoffeeBeanCard key={bean.id} {...bean} />
+          beans.map((bean, index) => (
+            <CoffeeBeanCard key={bean.id} {...bean} eager={index < 3} />
           ))
         )}
       </div>
