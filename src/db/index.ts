@@ -1,4 +1,3 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
 
@@ -6,16 +5,15 @@ import * as schema from './schema';
 // - Build time: Uses DATABASE_URL environment variable
 // - Runtime (Cloudflare Workers): Uses Hyperdrive for optimized edge connections (if enabled)
 export async function getDb(useHyperdrive = true) {
-  let connectionString: string;
+  let connectionString: string | undefined;
   let isUsingHyperdrive = false;
 
   if (useHyperdrive) {
     try {
       // Try to get Hyperdrive connection string (only available at runtime)
-      // Using { async: true } avoids errors during deploy/build
-      const { env } = await getCloudflareContext({ async: true });
-      connectionString = env.HYPERDRIVE.connectionString;
-      isUsingHyperdrive = true;
+      const { env } = await import('cloudflare:workers');
+      connectionString = env.HYPERDRIVE?.connectionString;
+      isUsingHyperdrive = Boolean(connectionString);
     } catch {
       // Fall back to DATABASE_URL for build time or local development
       connectionString = process.env.DATABASE_URL!;
