@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/db';
-import { coffeeBeans, suppliers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getBeanWithSupplier } from '@/db/queries';
 import {
   HYPERDRIVE_COOKIE,
   resolveHyperdrivePreference,
@@ -27,33 +25,17 @@ export async function GET(
       searchParams: request.nextUrl.searchParams,
       cookieValue: request.cookies.get(HYPERDRIVE_COOKIE)?.value,
     });
-    const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
-    // Measure database query time
-    const dbStartTime = Date.now();
+    const detail = await getBeanWithSupplier({ id: beanId, useHyperdrive });
 
-    // Fetch bean with supplier JOIN
-    const result = await db
-      .select({
-        bean: coffeeBeans,
-        supplier: suppliers,
-      })
-      .from(coffeeBeans)
-      .leftJoin(suppliers, eq(coffeeBeans.supplierId, suppliers.id))
-      .where(eq(coffeeBeans.id, beanId))
-      .limit(1);
-
-    const dbEndTime = Date.now();
-    const dbDurationMs = dbEndTime - dbStartTime;
-
-    if (result.length === 0) {
+    if (!detail) {
       return NextResponse.json(
         { error: 'Coffee bean not found' },
         { status: 404 }
       );
     }
 
-    const { bean, supplier } = result[0];
+    const { bean, supplier, isUsingHyperdrive, dbDurationMs } = detail;
 
     // Return with no-cache headers to ensure fresh data on every request
     return NextResponse.json(
