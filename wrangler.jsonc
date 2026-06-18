@@ -11,6 +11,7 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	"keep_names": false,
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".open-next/assets"
