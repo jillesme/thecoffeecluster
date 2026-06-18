@@ -1,0 +1,84 @@
+{
+  "targets": [
+    "https://thecoffeecluster.com/",
+    "https://thecoffeecluster.com/beans/85"
+  ],
+  "output_dir": "benchmark-results/vinext-optimized/remote-bundle",
+  "page_count": 2,
+  "pages": [
+    {
+      "target": "https://thecoffeecluster.com/",
+      "final_url": "https://thecoffeecluster.com/",
+      "page_slug": "home",
+      "html_file": "benchmark-results/vinext-optimized/remote-bundle/pages/home/index.html",
+      "html_bytes": 32438,
+      "html_kib": 31.68,
+      "script_count": 2,
+      "script_srcs": [
+        "/_next/static/chunks/index-BctXlPAW.js",
+        "https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447"
+      ],
+      "script_urls": [
+        "https://thecoffeecluster.com/_next/static/chunks/index-BctXlPAW.js",
+        "https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447"
+      ],
+      "total_script_bytes": 226804,
+      "total_script_kib": 221.49
+    },
+    {
+      "target": "https://thecoffeecluster.com/beans/85",
+      "final_url": "https://thecoffeecluster.com/beans/85",
+      "page_slug": "beans_85",
+      "html_file": "benchmark-results/vinext-optimized/remote-bundle/pages/beans_85/index.html",
+      "html_bytes": 26745,
+      "html_kib": 26.12,
+      "script_count": 2,
+      "script_srcs": [
+        "/_next/static/chunks/index-BctXlPAW.js",
+        "https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447"
+      ],
+      "script_urls": [
+        "https://thecoffeecluster.com/_next/static/chunks/index-BctXlPAW.js",
+        "https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447"
+      ],
+      "total_script_bytes": 226804,
+      "total_script_kib": 221.49
+    }
+  ],
+  "unique_script_count": 2,
+  "downloaded_ok": 2,
+  "downloaded_failed": 0,
+  "total_unique_script_bytes": 226804,
+  "total_unique_script_kib": 221.49,
+  "total_page_script_bytes": 453608,
+  "total_page_script_kib": 442.98,
+  "largest_script": {
+    "index": 1,
+    "url": "https://thecoffeecluster.com/_next/static/chunks/index-BctXlPAW.js",
+    "file": "benchmark-results/vinext-optimized/remote-bundle/scripts/01.js",
+    "bytes": 193576,
+    "kib": 189.04,
+    "status": "ok",
+    "error": ""
+  },
+  "results": [
+    {
+      "index": 1,
+      "url": "https://thecoffeecluster.com/_next/static/chunks/index-BctXlPAW.js",
+      "file": "benchmark-results/vinext-optimized/remote-bundle/scripts/01.js",
+      "bytes": 193576,
+      "kib": 189.04,
+      "status": "ok",
+      "error": ""
+    },
+    {
+      "index": 2,
+      "url": "https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447",
+      "file": "benchmark-results/vinext-optimized/remote-bundle/scripts/02.js",
+      "bytes": 33228,
+      "kib": 32.45,
+      "status": "ok",
+      "error": ""
+    }
+  ]
+}
