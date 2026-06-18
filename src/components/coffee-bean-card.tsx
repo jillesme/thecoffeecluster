@@ -9,6 +9,7 @@ interface CoffeeBeanCardProps {
   tastingNotes: string | null;
   priceInCents: number;
   roastLevel: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
+  eager?: boolean;
 }
 
 const ROAST_COLORS = {
@@ -26,6 +27,7 @@ export function CoffeeBeanCard({
   tastingNotes,
   priceInCents,
   roastLevel,
+  eager = false,
 }: CoffeeBeanCardProps) {
   const price = (priceInCents / 100).toFixed(2);
 
@@ -46,6 +48,8 @@ export function CoffeeBeanCard({
           alt={name}
           fill
           unoptimized
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
           className="object-cover transition-transform group-hover:scale-105"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
