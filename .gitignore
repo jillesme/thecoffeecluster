@@ -38,6 +38,14 @@ next-env.d.ts
 # OpenNext
 /.open-next
 
+# vinext
+/.vinext
+/worker/
+
+# local coding-agent skills
+/.agents
+/skills-lock.json
+
 # wrangler files
 .wrangler
 .dev.vars*
