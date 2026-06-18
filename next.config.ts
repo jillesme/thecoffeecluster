@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	// Ensure OpenNext copies pg-cloudflare's workerd conditional export for Hyperdrive.
+	serverExternalPackages: ['pg-cloudflare'],
 	images: {
 		remotePatterns: [
 			{
