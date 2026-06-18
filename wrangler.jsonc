@@ -5,7 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "the-coffee-cluster",
-	"main": ".open-next/worker.js",
+	"main": "vinext/server/app-router-entry",
 	"compatibility_date": "2026-01-27",
 	"compatibility_flags": [
 		"nodejs_compat",
@@ -13,8 +13,7 @@
 	],
 	"keep_names": false,
 	"assets": {
-		"binding": "ASSETS",
-		"directory": ".open-next/assets"
+		"not_found_handling": "none"
 	},
 	"observability": {
 		"enabled": true
