@@ -2,21 +2,40 @@
 
 import { Rocket } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import Cookies from 'js-cookie';
 
-export function HyperdriveToggle() {
-	const [isEnabled, setIsEnabled] = useState(false);
+const hyperdriveToggleListeners = new Set<() => void>();
 
-	// Read cookie on mount
-	useEffect(() => {
-		const cookieValue = Cookies.get('use-hyperdrive');
-		setIsEnabled(cookieValue === 'true');
-	}, []);
+function subscribeToHyperdriveToggle(listener: () => void) {
+	hyperdriveToggleListeners.add(listener);
+	return () => hyperdriveToggleListeners.delete(listener);
+}
+
+function getHyperdriveToggleSnapshot() {
+	return Cookies.get('use-hyperdrive') === 'true';
+}
+
+function getServerHyperdriveToggleSnapshot() {
+	return false;
+}
+
+function notifyHyperdriveToggleListeners() {
+	for (const listener of hyperdriveToggleListeners) {
+		listener();
+	}
+}
+
+export function HyperdriveToggle() {
+	const isEnabled = useSyncExternalStore(
+		subscribeToHyperdriveToggle,
+		getHyperdriveToggleSnapshot,
+		getServerHyperdriveToggleSnapshot
+	);
 
 	const handleToggle = (pressed: boolean) => {
-		setIsEnabled(pressed);
 		Cookies.set('use-hyperdrive', pressed ? 'true' : 'false', { expires: 365 });
+		notifyHyperdriveToggleListeners();
 	};
 
 	return (
