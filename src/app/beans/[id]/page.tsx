@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/page-shell';
 import { RoastBadge } from '@/components/roast-badge';
-import { BeanDetailLatencyRecorder } from '@/components/bean-detail-latency-recorder';
+import { LatencyRecorder } from '@/components/latency-recorder';
 import { getBeanWithSupplier } from '@/db/queries';
 import { getBeanImageUrl } from '@/lib/bean-image';
 import {
@@ -54,8 +54,8 @@ export default async function BeanDetailPage({
 
   return (
     <PageShell useHyperdrive={useHyperdrive}>
-      <BeanDetailLatencyRecorder
-        beanName={bean.name}
+      <LatencyRecorder
+        label={bean.name}
         dbDurationMs={dbDurationMs}
         totalMs={totalMs}
         isUsingHyperdrive={isUsingHyperdrive}

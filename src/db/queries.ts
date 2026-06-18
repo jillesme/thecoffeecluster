@@ -22,6 +22,7 @@ export async function getBeansPage({
   const currentPage = Math.max(1, Number.isFinite(page) ? page : 1);
   const offset = (currentPage - 1) * BEANS_PER_PAGE;
 
+  const totalStartTime = Date.now();
   const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
   // Measure DB time with Date.now() for Cloudflare Workers compatibility.
@@ -30,7 +31,19 @@ export async function getBeansPage({
   // Count and page queries are independent, so run them concurrently.
   const [[{ value: totalCount }], beans] = await Promise.all([
     db.select({ value: count() }).from(coffeeBeans),
-    db.select().from(coffeeBeans).limit(BEANS_PER_PAGE).offset(offset),
+    db
+      .select({
+        id: coffeeBeans.id,
+        name: coffeeBeans.name,
+        description: coffeeBeans.description,
+        imageKey: coffeeBeans.imageKey,
+        tastingNotes: coffeeBeans.tastingNotes,
+        priceInCents: coffeeBeans.priceInCents,
+        roastLevel: coffeeBeans.roastLevel,
+      })
+      .from(coffeeBeans)
+      .limit(BEANS_PER_PAGE)
+      .offset(offset),
   ]);
 
   const dbDurationMs = Date.now() - dbStartTime;
@@ -46,6 +59,7 @@ export async function getBeansPage({
     },
     isUsingHyperdrive,
     dbDurationMs,
+    totalMs: Date.now() - totalStartTime,
   };
 }
 

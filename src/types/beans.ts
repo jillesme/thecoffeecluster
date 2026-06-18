@@ -1,5 +1,17 @@
 import type { CoffeeBean, Supplier } from '@/db/schema';
 
+/** Minimal row shape needed to render a catalog card. */
+export type BeanListItem = Pick<
+  CoffeeBean,
+  | 'id'
+  | 'name'
+  | 'description'
+  | 'imageKey'
+  | 'tastingNotes'
+  | 'priceInCents'
+  | 'roastLevel'
+>;
+
 /** Pagination metadata returned alongside a page of beans. */
 export interface Pagination {
   currentPage: number;
@@ -20,8 +32,10 @@ export interface LatencyMeta {
 
 /** Result of fetching a page of beans. */
 export interface BeanListResult extends LatencyMeta {
-  beans: CoffeeBean[];
+  beans: BeanListItem[];
   pagination: Pagination;
+  /** End-to-end server time including connection acquisition. */
+  totalMs: number;
 }
 
 /** Result of fetching a single bean with its supplier. */
@@ -34,6 +48,6 @@ export interface BeanDetailResult extends LatencyMeta {
 
 /** Shape of the JSON returned by `GET /api/beans`. */
 export interface BeansApiResponse extends LatencyMeta {
-  beans: CoffeeBean[];
+  beans: BeanListItem[];
   pagination: Pagination;
 }
