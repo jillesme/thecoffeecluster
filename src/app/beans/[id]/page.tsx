@@ -1,41 +1,20 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { toast } from 'sonner';
-import { ArrowLeft, Globe, Leaf } from 'lucide-react';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { eq } from 'drizzle-orm';
+import { AlertTriangle, ArrowLeft, Globe, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CoffeeBeanDetailSkeleton } from '@/components/coffee-bean-detail-skeleton';
 import { PageShell } from '@/components/page-shell';
-import { useLatencyStore } from '@/lib/latency-store';
-
-interface CoffeeBean {
-  id: number;
-  name: string;
-  description: string | null;
-  imageKey: string | null;
-  tastingNotes: string | null;
-  priceInCents: number;
-  roastLevel: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
-  supplierId: number | null;
-}
-
-interface Supplier {
-  id: number;
-  name: string;
-  country: string;
-  isFairTrade: boolean | null;
-  websiteUrl: string | null;
-}
-
-interface BeanApiResponse {
-  bean: CoffeeBean;
-  supplier: Supplier | null;
-  isUsingHyperdrive: boolean;
-  dbDurationMs: number;
-}
+import { BeanDetailLatencyRecorder } from '@/components/bean-detail-latency-recorder';
+import { getDb } from '@/db';
+import { coffeeBeans, suppliers } from '@/db/schema';
+import {
+  HYPERDRIVE_COOKIE,
+  resolveHyperdrivePreference,
+  withHyperdriveParam,
+} from '@/lib/hyperdrive-mode';
 
 const ROAST_COLORS = {
   Light: 'bg-amber-100 text-amber-800',
@@ -44,88 +23,131 @@ const ROAST_COLORS = {
   Espresso: 'bg-stone-900 text-stone-50',
 };
 
-export default function BeanDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [data, setData] = useState<BeanApiResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const addRecord = useLatencyStore((state) => state.addRecord);
+async function getBeanDetailData(beanId: number, useHyperdrive: boolean) {
+  const requestStartTime = Date.now();
+  const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
-  useEffect(() => {
-    const fetchBean = async () => {
-      setIsLoading(true);
-      setError(null);
+  const dbStartTime = Date.now();
+  const result = await db
+    .select({
+      bean: coffeeBeans,
+      supplier: suppliers,
+    })
+    .from(coffeeBeans)
+    .leftJoin(suppliers, eq(coffeeBeans.supplierId, suppliers.id))
+    .where(eq(coffeeBeans.id, beanId))
+    .limit(1);
+  const dbDurationMs = Date.now() - dbStartTime;
+  const totalMs = Date.now() - requestStartTime;
 
-      const startTime = performance.now();
+  return {
+    result,
+    dbDurationMs,
+    totalMs,
+    isUsingHyperdrive,
+  };
+}
 
-      try {
-        const response = await fetch(`/api/beans/${params.id}`);
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError('Coffee bean not found');
-          } else {
-            setError('Failed to load coffee bean');
-          }
-          return;
-        }
-
-        const result = await response.json() as BeanApiResponse;
-        const endTime = performance.now();
-        const totalMs = Math.round(endTime - startTime);
-
-        setData(result);
-
-        // Record latency stats
-        addRecord({
-          totalMs,
-          dbMs: result.dbDurationMs,
-          isHyperdrive: result.isUsingHyperdrive,
-        });
-
-        // Show toast
-        const connectionType = result.isUsingHyperdrive ? 'Hyperdrive' : 'Direct';
-        toast.success(`Loaded ${result.bean.name}`, {
-          description: `${result.dbDurationMs}ms db / ${totalMs}ms total (${connectionType})`,
-        });
-      } catch (err) {
-        console.error('Error fetching bean:', err);
-        setError('Failed to load coffee bean');
-        toast.error('Failed to load coffee bean');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (params.id) {
-      fetchBean();
+function getSafeBeanDetailError(error: unknown) {
+  if (error instanceof Error) {
+    if (error.message.includes('No database connection string')) {
+      return 'Database connection is not configured for the selected mode.';
     }
-  }, [params.id, addRecord]);
 
-  if (isLoading) {
-    return (
-      <PageShell>
-        <CoffeeBeanDetailSkeleton />
-      </PageShell>
-    );
+    if (/timeout|timed out|connect|connection|ECONN/i.test(error.message)) {
+      return 'Database connection failed or timed out for the selected mode.';
+    }
   }
 
-  if (error || !data) {
-    return (
-      <PageShell>
-        <div className="max-w-4xl mx-auto text-center py-12">
-          <p className="text-stone-600 mb-4">{error || 'Something went wrong'}</p>
-          <Button variant="outline" onClick={() => router.push('/')}>
+  return 'Database query failed while loading this bean detail.';
+}
+
+function BeanDetailInlineError({
+  beanId,
+  useHyperdrive,
+  error,
+}: {
+  beanId: number;
+  useHyperdrive: boolean;
+  error: unknown;
+}) {
+  const connectionType = useHyperdrive ? 'Hyperdrive' : 'Direct';
+
+  return (
+    <PageShell useHyperdrive={useHyperdrive}>
+      <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-white p-8 shadow-sm">
+        <div className="mb-4 flex items-center gap-3 text-amber-700">
+          <AlertTriangle className="h-6 w-6" />
+          <h1 className="text-2xl font-bold text-stone-900">Could not load bean #{beanId}</h1>
+        </div>
+
+        <p className="mb-4 text-stone-600">{getSafeBeanDetailError(error)}</p>
+
+        <div className="mb-6 rounded-lg bg-stone-50 p-4 text-sm text-stone-600">
+          <p>
+            <span className="font-semibold text-stone-800">Connection mode:</span>{' '}
+            {connectionType}
+          </p>
+          <p className="mt-2 text-xs text-stone-500">
+            The full error is logged server-side. This panel only shows a sanitized demo-safe summary.
+          </p>
+        </div>
+
+        <Button asChild variant="outline">
+          <Link href={withHyperdriveParam('/', useHyperdrive)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to all beans
-          </Button>
-        </div>
-      </PageShell>
+          </Link>
+        </Button>
+      </div>
+    </PageShell>
+  );
+}
+
+export default async function BeanDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ id }, resolvedSearchParams, cookieStore] = await Promise.all([
+    params,
+    searchParams,
+    cookies(),
+  ]);
+  const beanId = parseInt(id, 10);
+
+  if (isNaN(beanId)) {
+    notFound();
+  }
+
+  const useHyperdrive = resolveHyperdrivePreference({
+    searchParams: resolvedSearchParams,
+    cookieValue: cookieStore.get(HYPERDRIVE_COOKIE)?.value,
+  });
+  let detailData: Awaited<ReturnType<typeof getBeanDetailData>>;
+
+  try {
+    detailData = await getBeanDetailData(beanId, useHyperdrive);
+  } catch (error) {
+    console.error('Failed to load bean detail:', error);
+    return (
+      <BeanDetailInlineError
+        beanId={beanId}
+        useHyperdrive={useHyperdrive}
+        error={error}
+      />
     );
   }
 
-  const { bean, supplier } = data;
+  const { result, dbDurationMs, totalMs, isUsingHyperdrive } = detailData;
+
+  if (result.length === 0) {
+    notFound();
+  }
+
+  const { bean, supplier } = result[0];
   const price = (bean.priceInCents / 100).toFixed(2);
 
   const imageUrl = bean.imageKey
@@ -133,16 +155,20 @@ export default function BeanDetailPage() {
     : `https://placehold.co/600x600/8b7355/ffffff?text=${encodeURIComponent(bean.name)}`;
 
   return (
-    <PageShell>
+    <PageShell useHyperdrive={useHyperdrive}>
+      <BeanDetailLatencyRecorder
+        beanName={bean.name}
+        dbDurationMs={dbDurationMs}
+        totalMs={totalMs}
+        isUsingHyperdrive={isUsingHyperdrive}
+      />
       <div className="max-w-4xl mx-auto">
         {/* Back button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/')}
-          className="mb-6 -ml-2 text-stone-600 hover:text-stone-900"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to all beans
+        <Button asChild variant="ghost" className="mb-6 -ml-2 text-stone-600 hover:text-stone-900">
+          <Link href={withHyperdriveParam('/', useHyperdrive)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to all beans
+          </Link>
         </Button>
 
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">

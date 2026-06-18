@@ -4,6 +4,11 @@ import { Rocket } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { useSyncExternalStore } from 'react';
 import Cookies from 'js-cookie';
+import {
+	HYPERDRIVE_COOKIE,
+	HYPERDRIVE_QUERY_PARAM,
+	parseBooleanPreference,
+} from '@/lib/hyperdrive-mode';
 
 const hyperdriveToggleListeners = new Set<() => void>();
 
@@ -13,7 +18,14 @@ function subscribeToHyperdriveToggle(listener: () => void) {
 }
 
 function getHyperdriveToggleSnapshot() {
-	return Cookies.get('use-hyperdrive') === 'true';
+	const queryPreference =
+		typeof window === 'undefined'
+			? undefined
+			: parseBooleanPreference(
+					new URLSearchParams(window.location.search).get(HYPERDRIVE_QUERY_PARAM)
+				);
+
+	return queryPreference ?? (Cookies.get(HYPERDRIVE_COOKIE) === 'true');
 }
 
 function getServerHyperdriveToggleSnapshot() {
@@ -34,8 +46,12 @@ export function HyperdriveToggle() {
 	);
 
 	const handleToggle = (pressed: boolean) => {
-		Cookies.set('use-hyperdrive', pressed ? 'true' : 'false', { expires: 365 });
+		Cookies.set(HYPERDRIVE_COOKIE, pressed ? 'true' : 'false', { expires: 365 });
 		notifyHyperdriveToggleListeners();
+
+		const url = new URL(window.location.href);
+		url.searchParams.set(HYPERDRIVE_QUERY_PARAM, pressed ? 'true' : 'false');
+		window.location.assign(url.toString());
 	};
 
 	return (
