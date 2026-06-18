@@ -1,24 +1,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { withHyperdriveParam } from '@/lib/hyperdrive-mode';
+import { getBeanImageUrl } from '@/lib/bean-image';
+import { RoastBadge } from '@/components/roast-badge';
+import type { CoffeeBean } from '@/db/schema';
 
-interface CoffeeBeanCardProps {
-  id: number;
-  name: string;
-  description: string | null;
-  imageKey: string | null;
-  tastingNotes: string | null;
-  priceInCents: number;
-  roastLevel: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
+type CoffeeBeanCardProps = Pick<
+  CoffeeBean,
+  'id' | 'name' | 'description' | 'imageKey' | 'tastingNotes' | 'priceInCents' | 'roastLevel'
+> & {
   eager?: boolean;
   useHyperdrive?: boolean;
-}
-
-const ROAST_COLORS = {
-  Light: 'bg-amber-100 text-amber-800',
-  Medium: 'bg-amber-200 text-amber-900',
-  Dark: 'bg-amber-800 text-amber-50',
-  Espresso: 'bg-stone-900 text-stone-50',
 };
 
 export function CoffeeBeanCard({
@@ -38,10 +30,7 @@ export function CoffeeBeanCard({
       ? withHyperdriveParam(`/beans/${id}`, useHyperdrive)
       : `/beans/${id}`;
 
-  // Construct R2 image URL
-  const imageUrl = imageKey
-    ? `${process.env.NEXT_PUBLIC_R2_URL}/${imageKey}`
-    : `https://placehold.co/400x300/8b7355/ffffff?text=${encodeURIComponent(name)}`;
+  const imageUrl = getBeanImageUrl({ name, imageKey }, { width: 400, height: 300 });
 
   return (
     <Link
@@ -78,13 +67,7 @@ export function CoffeeBeanCard({
         {/* Roast Level Badge */}
         {roastLevel && (
           <div className="mb-2">
-            <span
-              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                ROAST_COLORS[roastLevel]
-              }`}
-            >
-              {roastLevel} Roast
-            </span>
+            <RoastBadge roastLevel={roastLevel} size="sm" />
           </div>
         )}
 

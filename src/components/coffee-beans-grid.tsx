@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { CoffeeBeanCard } from './coffee-bean-card';
 import { CoffeeBeanCardSkeleton } from './coffee-bean-card-skeleton';
 import { toast } from 'sonner';
 import { useLatencyStore } from '@/lib/latency-store';
+import { BEANS_PER_PAGE } from '@/lib/constants';
+import { HYPERDRIVE_QUERY_PARAM } from '@/lib/hyperdrive-mode';
+import type { CoffeeBean } from '@/db/schema';
+import type { BeansApiResponse, Pagination as PaginationInfo } from '@/types/beans';
 import {
   Pagination,
   PaginationContent,
@@ -15,35 +19,10 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
-interface CoffeeBean {
-  id: number;
-  name: string;
-  description: string | null;
-  imageKey: string | null;
-  tastingNotes: string | null;
-  priceInCents: number;
-  roastLevel: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
-  supplierId: number | null;
-}
-
-interface PaginationInfo {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  perPage: number;
-}
-
 interface CoffeeBeansGridProps {
   initialBeans: CoffeeBean[];
   initialPagination: PaginationInfo;
   useHyperdrive: boolean;
-}
-
-interface BeansApiResponse {
-  beans: CoffeeBean[];
-  pagination: PaginationInfo;
-  isUsingHyperdrive: boolean;
-  dbDurationMs: number;
 }
 
 export function CoffeeBeansGrid({
@@ -56,52 +35,93 @@ export function CoffeeBeansGrid({
   const [isPending, startTransition] = useTransition();
   const addRecord = useLatencyStore((state) => state.addRecord);
 
-  // Fetch data for a specific page
-  const fetchPage = async (page: number, showToast = true) => {
-    const startTime = performance.now();
+  // Track the active page for the popstate handler without re-subscribing.
+  const currentPageRef = useRef(pagination.currentPage);
+  useEffect(() => {
+    currentPageRef.current = pagination.currentPage;
+  }, [pagination.currentPage]);
 
-    try {
-      const response = await fetch(`/api/beans?page=${page}&hyperdrive=${useHyperdrive ? 'true' : 'false'}`);
-      if (!response.ok) throw new Error('Failed to fetch beans');
+  // Fetch a page via the API "latency probe" and record timing for the demo.
+  const fetchPage = useCallback(
+    async (page: number, showToast = true) => {
+      const startTime = performance.now();
 
-      const data = await response.json() as BeansApiResponse;
-      const endTime = performance.now();
-      const totalMs = Math.round(endTime - startTime);
+      try {
+        const response = await fetch(
+          `/api/beans?page=${page}&${HYPERDRIVE_QUERY_PARAM}=${useHyperdrive ? 'true' : 'false'}`
+        );
+        if (!response.ok) throw new Error('Failed to fetch beans');
 
-      setBeans(data.beans);
-      setPagination(data.pagination);
+        const data = (await response.json()) as BeansApiResponse;
+        const endTime = performance.now();
+        const totalMs = Math.round(endTime - startTime);
 
-      // Record latency stats
-      addRecord({
-        totalMs,
-        dbMs: data.dbDurationMs,
-        isHyperdrive: data.isUsingHyperdrive,
-      });
+        setBeans(data.beans);
+        setPagination(data.pagination);
 
-      // Show success toast with request time and connection type
-      if (showToast) {
-        const connectionType = data.isUsingHyperdrive ? 'Hyperdrive' : 'Direct';
-        toast.success(`Loaded page ${page}`, {
-          description: `${data.dbDurationMs}ms db / ${totalMs}ms total (${connectionType})`,
+        // Record latency stats
+        addRecord({
+          totalMs,
+          dbMs: data.dbDurationMs,
+          isHyperdrive: data.isUsingHyperdrive,
+        });
+
+        // Show success toast with request time and connection type
+        if (showToast) {
+          const connectionType = data.isUsingHyperdrive ? 'Hyperdrive' : 'Direct';
+          toast.success(`Loaded page ${page}`, {
+            description: `${data.dbDurationMs}ms db / ${totalMs}ms total (${connectionType})`,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching beans:', error);
+        toast.error('Failed to load coffee beans', {
+          description: 'Please try again',
         });
       }
-    } catch (error) {
-      console.error('Error fetching beans:', error);
-      toast.error('Failed to load coffee beans', {
-        description: 'Please try again',
-      });
-    }
-  };
+    },
+    [addRecord, useHyperdrive]
+  );
 
-  const handlePageChange = async (page: number) => {
+  // Reflect the active page in the URL (shallow, no server round-trip) so pages
+  // are bookmarkable/shareable while preserving the client-side latency probe.
+  const buildPageUrl = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(window.location.search);
+      params.set('page', String(page));
+      params.set(HYPERDRIVE_QUERY_PARAM, useHyperdrive ? 'true' : 'false');
+      return `${window.location.pathname}?${params.toString()}`;
+    },
+    [useHyperdrive]
+  );
+
+  const handlePageChange = (page: number) => {
     if (page === pagination.currentPage || page < 1 || page > pagination.totalPages) {
       return;
     }
 
+    window.history.pushState(null, '', buildPageUrl(page));
     startTransition(async () => {
       await fetchPage(page);
     });
   };
+
+  // Keep the grid in sync with browser back/forward navigation.
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const parsed = parseInt(params.get('page') ?? '1', 10);
+      const target = Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
+      if (target !== currentPageRef.current) {
+        startTransition(async () => {
+          await fetchPage(target, false);
+        });
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [fetchPage]);
 
   // Generate page numbers to display
   const getPageNumbers = () => {
@@ -148,7 +168,7 @@ export function CoffeeBeansGrid({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {isPending ? (
           // Show skeleton cards while loading
-          Array.from({ length: 6 }).map((_, index) => (
+          Array.from({ length: pagination.perPage || BEANS_PER_PAGE }).map((_, index) => (
             <CoffeeBeanCardSkeleton key={`skeleton-${index}`} />
           ))
         ) : (

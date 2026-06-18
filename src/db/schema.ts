@@ -45,3 +45,9 @@ export const coffeeBeansRelations = relations(coffeeBeans, ({ one }) => ({
     references: [suppliers.id],
   }), // A specific bean belongs to one supplier
 }));
+
+// 5. Inferred row types — the single source of truth for the app.
+// Prefer these over hand-written interfaces so types never drift from the schema.
+export type Supplier = typeof suppliers.$inferSelect;
+export type CoffeeBean = typeof coffeeBeans.$inferSelect;
+export type RoastLevel = NonNullable<CoffeeBean['roastLevel']>;

@@ -2,107 +2,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { eq } from 'drizzle-orm';
-import { AlertTriangle, ArrowLeft, Globe, Leaf } from 'lucide-react';
+import { ArrowLeft, Globe, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/page-shell';
+import { RoastBadge } from '@/components/roast-badge';
 import { BeanDetailLatencyRecorder } from '@/components/bean-detail-latency-recorder';
-import { getDb } from '@/db';
-import { coffeeBeans, suppliers } from '@/db/schema';
+import { getBeanWithSupplier } from '@/db/queries';
+import { getBeanImageUrl } from '@/lib/bean-image';
 import {
   HYPERDRIVE_COOKIE,
   resolveHyperdrivePreference,
   withHyperdriveParam,
 } from '@/lib/hyperdrive-mode';
-
-const ROAST_COLORS = {
-  Light: 'bg-amber-100 text-amber-800',
-  Medium: 'bg-amber-200 text-amber-900',
-  Dark: 'bg-amber-800 text-amber-50',
-  Espresso: 'bg-stone-900 text-stone-50',
-};
-
-async function getBeanDetailData(beanId: number, useHyperdrive: boolean) {
-  const requestStartTime = Date.now();
-  const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
-
-  const dbStartTime = Date.now();
-  const result = await db
-    .select({
-      bean: coffeeBeans,
-      supplier: suppliers,
-    })
-    .from(coffeeBeans)
-    .leftJoin(suppliers, eq(coffeeBeans.supplierId, suppliers.id))
-    .where(eq(coffeeBeans.id, beanId))
-    .limit(1);
-  const dbDurationMs = Date.now() - dbStartTime;
-  const totalMs = Date.now() - requestStartTime;
-
-  return {
-    result,
-    dbDurationMs,
-    totalMs,
-    isUsingHyperdrive,
-  };
-}
-
-function getSafeBeanDetailError(error: unknown) {
-  if (error instanceof Error) {
-    if (error.message.includes('No database connection string')) {
-      return 'Database connection is not configured for the selected mode.';
-    }
-
-    if (/timeout|timed out|connect|connection|ECONN/i.test(error.message)) {
-      return 'Database connection failed or timed out for the selected mode.';
-    }
-  }
-
-  return 'Database query failed while loading this bean detail.';
-}
-
-function BeanDetailInlineError({
-  beanId,
-  useHyperdrive,
-  error,
-}: {
-  beanId: number;
-  useHyperdrive: boolean;
-  error: unknown;
-}) {
-  const connectionType = useHyperdrive ? 'Hyperdrive' : 'Direct';
-
-  return (
-    <PageShell useHyperdrive={useHyperdrive}>
-      <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-white p-8 shadow-sm">
-        <div className="mb-4 flex items-center gap-3 text-amber-700">
-          <AlertTriangle className="h-6 w-6" />
-          <h1 className="text-2xl font-bold text-stone-900">Could not load bean #{beanId}</h1>
-        </div>
-
-        <p className="mb-4 text-stone-600">{getSafeBeanDetailError(error)}</p>
-
-        <div className="mb-6 rounded-lg bg-stone-50 p-4 text-sm text-stone-600">
-          <p>
-            <span className="font-semibold text-stone-800">Connection mode:</span>{' '}
-            {connectionType}
-          </p>
-          <p className="mt-2 text-xs text-stone-500">
-            The full error is logged server-side. This panel only shows a sanitized demo-safe summary.
-          </p>
-        </div>
-
-        <Button asChild variant="outline">
-          <Link href={withHyperdriveParam('/', useHyperdrive)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to all beans
-          </Link>
-        </Button>
-      </div>
-    </PageShell>
-  );
-}
 
 export default async function BeanDetailPage({
   params,
@@ -126,33 +38,19 @@ export default async function BeanDetailPage({
     searchParams: resolvedSearchParams,
     cookieValue: cookieStore.get(HYPERDRIVE_COOKIE)?.value,
   });
-  let detailData: Awaited<ReturnType<typeof getBeanDetailData>>;
 
-  try {
-    detailData = await getBeanDetailData(beanId, useHyperdrive);
-  } catch (error) {
-    console.error('Failed to load bean detail:', error);
-    return (
-      <BeanDetailInlineError
-        beanId={beanId}
-        useHyperdrive={useHyperdrive}
-        error={error}
-      />
-    );
-  }
+  // The DAL reports db time, end-to-end server time, and which connection
+  // served the read — powering the PlanetScale-vs-Hyperdrive latency panel.
+  // Errors propagate to the route's error.tsx boundary.
+  const detail = await getBeanWithSupplier({ id: beanId, useHyperdrive });
 
-  const { result, dbDurationMs, totalMs, isUsingHyperdrive } = detailData;
-
-  if (result.length === 0) {
+  if (!detail) {
     notFound();
   }
 
-  const { bean, supplier } = result[0];
+  const { bean, supplier, dbDurationMs, totalMs, isUsingHyperdrive } = detail;
   const price = (bean.priceInCents / 100).toFixed(2);
-
-  const imageUrl = bean.imageKey
-    ? `${process.env.NEXT_PUBLIC_R2_URL}/${bean.imageKey}`
-    : `https://placehold.co/600x600/8b7355/ffffff?text=${encodeURIComponent(bean.name)}`;
+  const imageUrl = getBeanImageUrl(bean, { width: 600, height: 600 });
 
   return (
     <PageShell useHyperdrive={useHyperdrive}>
@@ -191,13 +89,7 @@ export default async function BeanDetailPage({
               {/* Roast badge */}
               {bean.roastLevel && (
                 <div className="mb-4">
-                  <span
-                    className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
-                      ROAST_COLORS[bean.roastLevel]
-                    }`}
-                  >
-                    {bean.roastLevel} Roast
-                  </span>
+                  <RoastBadge roastLevel={bean.roastLevel} size="md" />
                 </div>
               )}
 
