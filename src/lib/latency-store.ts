@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export interface LatencyRecord {
   timestamp: number;
@@ -15,17 +16,26 @@ interface LatencyStats {
   clearRecords: () => void;
 }
 
-export const useLatencyStore = create<LatencyStats>((set) => ({
-  records: [],
-  addRecord: (record) =>
-    set((state) => ({
-      records: [
-        ...state.records.slice(-19), // Keep last 20 records
-        { ...record, timestamp: Date.now() },
-      ],
-    })),
-  clearRecords: () => set({ records: [] }),
-}));
+export const useLatencyStore = create<LatencyStats>()(
+  persist(
+    (set) => ({
+      records: [],
+      addRecord: (record) =>
+        set((state) => ({
+          records: [
+            ...state.records.slice(-19), // Keep last 20 records
+            { ...record, timestamp: Date.now() },
+          ],
+        })),
+      clearRecords: () => set({ records: [] }),
+    }),
+    {
+      name: 'coffee-cluster-latency-records',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ records: state.records }),
+    }
+  )
+);
 
 // Helper functions for computing stats
 export function computeStats(records: LatencyRecord[]) {

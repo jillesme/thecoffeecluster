@@ -6,6 +6,7 @@ import { Zap, Database, Activity } from 'lucide-react';
 
 export function LatencyStatsPanel() {
   const records = useLatencyStore((state) => state.records);
+  const clearRecords = useLatencyStore((state) => state.clearRecords);
   const stats = computeStats(records);
 
   // Calculate improvement percentage when we have both types
@@ -117,7 +118,7 @@ export function LatencyStatsPanel() {
       {/* Last request indicator */}
       {stats.lastRecord && (
         <div className="border-t border-stone-200/50 px-5 py-2.5 bg-stone-50/50">
-          <div className="flex items-center justify-center gap-4 text-xs text-stone-500">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-stone-500">
             <span>
               Last request:{' '}
               <span className={`font-semibold ${stats.lastRecord.isHyperdrive ? 'text-orange-600' : 'text-stone-600'}`}>
@@ -145,6 +146,13 @@ export function LatencyStatsPanel() {
                 </>
               )}
             </span>
+            <button
+              type="button"
+              onClick={clearRecords}
+              className="text-[10px] font-medium uppercase tracking-wide text-stone-400 underline-offset-2 hover:text-stone-600 hover:underline"
+            >
+              Reset
+            </button>
           </div>
         </div>
       )}

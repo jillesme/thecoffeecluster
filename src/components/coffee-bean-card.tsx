@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { withHyperdriveParam } from '@/lib/hyperdrive-mode';
 
 interface CoffeeBeanCardProps {
   id: number;
@@ -10,6 +11,7 @@ interface CoffeeBeanCardProps {
   priceInCents: number;
   roastLevel: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
   eager?: boolean;
+  useHyperdrive?: boolean;
 }
 
 const ROAST_COLORS = {
@@ -28,8 +30,13 @@ export function CoffeeBeanCard({
   priceInCents,
   roastLevel,
   eager = false,
+  useHyperdrive,
 }: CoffeeBeanCardProps) {
   const price = (priceInCents / 100).toFixed(2);
+  const href =
+    typeof useHyperdrive === 'boolean'
+      ? withHyperdriveParam(`/beans/${id}`, useHyperdrive)
+      : `/beans/${id}`;
 
   // Construct R2 image URL
   const imageUrl = imageKey
@@ -38,7 +45,8 @@ export function CoffeeBeanCard({
 
   return (
     <Link
-      href={`/beans/${id}`}
+      href={href}
+      prefetch={false}
       className="group block overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-stone-300"
     >
       {/* Image */}

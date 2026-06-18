@@ -1,21 +1,30 @@
-'use client';
-
 import Link from 'next/link';
 import { LatencyStatsPanel } from '@/components/latency-stats-panel';
+import { withHyperdriveParam } from '@/lib/hyperdrive-mode';
 
 interface PageShellProps {
   children: React.ReactNode;
   showHeader?: boolean;
+  useHyperdrive?: boolean;
 }
 
-export function PageShell({ children, showHeader = true }: PageShellProps) {
+export function PageShell({
+  children,
+  showHeader = true,
+  useHyperdrive,
+}: PageShellProps) {
+  const homeHref =
+    typeof useHyperdrive === 'boolean'
+      ? withHyperdriveParam('/', useHyperdrive)
+      : '/';
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100">
       <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* Header */}
         {showHeader && (
           <header className="mb-8 text-center">
-            <Link href="/" className="inline-block">
+            <Link href={homeHref} className="inline-block">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-stone-900 mb-4 tracking-tight hover:text-stone-700 transition-colors">
                 The Coffee Cluster
               </h1>

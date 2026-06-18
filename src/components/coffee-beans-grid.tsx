@@ -36,6 +36,7 @@ interface PaginationInfo {
 interface CoffeeBeansGridProps {
   initialBeans: CoffeeBean[];
   initialPagination: PaginationInfo;
+  useHyperdrive: boolean;
 }
 
 interface BeansApiResponse {
@@ -48,6 +49,7 @@ interface BeansApiResponse {
 export function CoffeeBeansGrid({
   initialBeans,
   initialPagination,
+  useHyperdrive,
 }: CoffeeBeansGridProps) {
   const [beans, setBeans] = useState<CoffeeBean[]>(initialBeans);
   const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
@@ -59,7 +61,7 @@ export function CoffeeBeansGrid({
     const startTime = performance.now();
 
     try {
-      const response = await fetch(`/api/beans?page=${page}`);
+      const response = await fetch(`/api/beans?page=${page}&hyperdrive=${useHyperdrive ? 'true' : 'false'}`);
       if (!response.ok) throw new Error('Failed to fetch beans');
 
       const data = await response.json() as BeansApiResponse;
@@ -152,7 +154,12 @@ export function CoffeeBeansGrid({
         ) : (
           // Show actual beans when not loading
           beans.map((bean, index) => (
-            <CoffeeBeanCard key={bean.id} {...bean} eager={index < 3} />
+            <CoffeeBeanCard
+              key={bean.id}
+              {...bean}
+              eager={index < 3}
+              useHyperdrive={useHyperdrive}
+            />
           ))
         )}
       </div>

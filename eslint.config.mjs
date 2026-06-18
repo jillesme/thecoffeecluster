@@ -3,7 +3,14 @@ import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
 	{
-		ignores: [".open-next/**", ".wrangler/**", "cloudflare-env.d.ts", "coverage/**"],
+		ignores: [
+			".next/**",
+			".open-next/**",
+			".wrangler/**",
+			"dist/**",
+			"cloudflare-env.d.ts",
+			"coverage/**",
+		],
 	},
 	...nextCoreWebVitals,
 	...nextTypescript,

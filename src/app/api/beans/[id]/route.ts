@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/db';
 import { coffeeBeans, suppliers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import {
+  HYPERDRIVE_COOKIE,
+  resolveHyperdrivePreference,
+} from '@/lib/hyperdrive-mode';
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +23,10 @@ export async function GET(
     }
 
     // Read cookie to determine which connection to use
-    const useHyperdrive = request.cookies.get('use-hyperdrive')?.value === 'true';
+    const useHyperdrive = resolveHyperdrivePreference({
+      searchParams: request.nextUrl.searchParams,
+      cookieValue: request.cookies.get(HYPERDRIVE_COOKIE)?.value,
+    });
     const { db, isUsingHyperdrive } = await getDb(useHyperdrive);
 
     // Measure database query time
