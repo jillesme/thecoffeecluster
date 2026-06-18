@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "the-coffee-cluster",
+	"name": "the-coffee-cluster-old",
 	"main": ".open-next/worker.js",
 	"compatibility_date": "2026-01-27",
 	"compatibility_flags": [
@@ -28,7 +28,7 @@
 	],
 	"routes": [
 		{
-			"pattern": "thecoffeecluster.com",
+			"pattern": "old.thecoffeecluster.com",
 			"custom_domain": true
 		}
 	],
