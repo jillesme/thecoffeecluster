@@ -9,8 +9,10 @@ async function sha256(value: string) {
 }
 
 export async function supportEmailThreadId(input: { from: string; subject: string; messageId?: string }) {
-  // Message-ID gives deterministic retries for the same email; sender+subject keeps
-  // simple follow-up demos in one durable agent session even without References.
-  const stable = `${input.from.toLowerCase()}|${normalizeSubject(input.subject)}|${input.messageId ?? ''}`;
+  // Sender+normalized subject keeps simple follow-up demos in one durable agent
+  // session even when Email Routing does not provide enough References context.
+  // Message-ID stays available to downstream idempotency logic but is not part of
+  // the continuing agent id because each reply normally has a new Message-ID.
+  const stable = `${input.from.toLowerCase()}|${normalizeSubject(input.subject)}`;
   return `email-${await sha256(stable)}`;
 }

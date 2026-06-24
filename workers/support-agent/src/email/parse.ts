@@ -7,6 +7,13 @@ export interface ParsedSupportEmail {
   messageId?: string;
 }
 
+const MAX_TEXT_CHARS = 12_000;
+const MAX_HTML_CHARS = 50_000;
+
+function truncate(value: string, maxChars: number) {
+  return value.length > maxChars ? `${value.slice(0, maxChars)}\n\n[Message truncated]` : value;
+}
+
 export async function parseSupportEmail(raw: ReadableStream<Uint8Array>): Promise<ParsedSupportEmail> {
   const buffer = await new Response(raw).arrayBuffer();
   const parsed = await PostalMime.parse(buffer);
@@ -24,8 +31,8 @@ export async function parseSupportEmail(raw: ReadableStream<Uint8Array>): Promis
 
   return {
     subject,
-    text,
-    html: parsed.html,
+    text: truncate(text, MAX_TEXT_CHARS),
+    html: parsed.html ? truncate(parsed.html.trim(), MAX_HTML_CHARS) : undefined,
     messageId: parsed.messageId,
   };
 }

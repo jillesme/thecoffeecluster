@@ -1,8 +1,6 @@
 import { defineTool } from '@flue/runtime';
 import { and, asc, desc, eq, gt, ilike, lte, ne, sql, type SQL } from 'drizzle-orm';
 import * as v from 'valibot';
-import { withSupportDb } from '../db';
-import type { SupportAgentEnv } from '../env';
 import {
   coffeeBeans,
   coffeeInventory,
@@ -12,31 +10,76 @@ import {
   type RoastLevel,
   type Supplier,
 } from '../../../../src/db/schema';
+import type { SupportAgentEnv } from '../shared/env';
+import { limitSchema, nonNegativeIntegerSchema, positiveIntegerSchema } from '../shared/schemas';
+import { withSupportDb } from '../shared/support-db';
 
-const roastLevelSchema = v.picklist(['Light', 'Medium', 'Dark', 'Espresso']);
+const roastLevelSchema = v.pipe(
+  v.picklist(['Light', 'Medium', 'Dark', 'Espresso']),
+  v.description('Coffee roast level: Light, Medium, Dark, or Espresso.'),
+);
+
+const tastingNoteSchema = v.pipe(
+  v.string(),
+  v.trim(),
+  v.minLength(1),
+  v.maxLength(40),
+  v.description('A tasting note such as blueberry, chocolate, jasmine, or citrus.'),
+);
 
 const beanResultSchema = v.object({
-  beanId: v.number(),
+  beanId: positiveIntegerSchema,
   name: v.string(),
   description: v.nullable(v.string()),
   roastLevel: v.nullable(roastLevelSchema),
   tastingNotes: v.array(v.string()),
-  priceInCents: v.number(),
+  priceInCents: nonNegativeIntegerSchema,
   supplierName: v.nullable(v.string()),
   supplierCountry: v.nullable(v.string()),
   isFairTrade: v.boolean(),
-  availableQuantity: v.number(),
+  availableQuantity: nonNegativeIntegerSchema,
   restockEta: v.nullable(v.string()),
+});
+
+const inventoryOutputSchema = v.object({
+  beanId: positiveIntegerSchema,
+  availableQuantity: nonNegativeIntegerSchema,
+  inStock: v.boolean(),
+  restockEta: v.nullable(v.string()),
+});
+
+const beanDetailsOutputSchema = v.union([
+  v.object({ found: v.literal(false) }),
+  v.object({
+    found: v.literal(true),
+    beanId: positiveIntegerSchema,
+    name: v.string(),
+    description: v.nullable(v.string()),
+    roastLevel: v.nullable(roastLevelSchema),
+    tastingNotes: v.array(v.string()),
+    priceInCents: nonNegativeIntegerSchema,
+    supplierName: v.nullable(v.string()),
+    supplierCountry: v.nullable(v.string()),
+    isFairTrade: v.boolean(),
+    availableQuantity: nonNegativeIntegerSchema,
+    restockEta: v.nullable(v.string()),
+    imageKey: v.nullable(v.string()),
+    inventory: inventoryOutputSchema,
+  }),
+]);
+
+const beanIdInputSchema = v.object({
+  beanId: v.pipe(positiveIntegerSchema, v.description('The coffee bean id from search results.')),
 });
 
 const beanSearchInputSchema = v.object({
   roastLevel: v.optional(roastLevelSchema),
-  originCountry: v.optional(v.string()),
-  tastingNotes: v.optional(v.array(v.string())),
-  maxPriceInCents: v.optional(v.number()),
+  originCountry: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(80))),
+  tastingNotes: v.optional(v.pipe(v.array(tastingNoteSchema), v.maxLength(5))),
+  maxPriceInCents: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000))),
   fairTradeOnly: v.optional(v.boolean()),
   inStockOnly: v.optional(v.boolean()),
-  limit: v.optional(v.number()),
+  limit: v.optional(limitSchema),
 });
 
 type BeanResult = v.InferOutput<typeof beanResultSchema>;
@@ -53,7 +96,7 @@ type BeanProjection = Pick<
   restockEta: CoffeeInventory['restockEta'] | string | null;
 };
 
-const availableQuantity = sql<number>`coalesce(${coffeeInventory.quantityAvailable}, 0) - coalesce(${coffeeInventory.reservedQuantity}, 0)`;
+const availableQuantity = sql<number>`greatest(coalesce(${coffeeInventory.quantityAvailable}, 0) - coalesce(${coffeeInventory.reservedQuantity}, 0), 0)`;
 
 const beanProjection = {
   beanId: coffeeBeans.id,
@@ -132,14 +175,15 @@ async function runBeanSearch(env: SupportAgentEnv, input: BeanSearchInput) {
   });
 }
 
-export function createCoffeeTools(env: SupportAgentEnv) {
+export function createCatalogTools(env: SupportAgentEnv) {
   const searchCoffeeBeans = defineTool({
     name: 'search_coffee_beans',
     description:
       'Search the coffee catalog with supplier and inventory data. Use this before answering product, origin, roast, price, fair-trade, or stock questions.',
     input: beanSearchInputSchema,
     output: v.object({ results: v.array(beanResultSchema) }),
-    async run({ input }) {
+    async run({ input, signal }) {
+      signal?.throwIfAborted();
       return { results: await runBeanSearch(env, input) };
     },
   });
@@ -147,8 +191,10 @@ export function createCoffeeTools(env: SupportAgentEnv) {
   const getBeanDetails = defineTool({
     name: 'get_bean_details',
     description: 'Get detailed catalog, supplier, and inventory information for one coffee bean by beanId.',
-    input: v.object({ beanId: v.number() }),
-    async run({ input }) {
+    input: beanIdInputSchema,
+    output: beanDetailsOutputSchema,
+    async run({ input, signal }) {
+      signal?.throwIfAborted();
       return withSupportDb(env, async (db) => {
         const [row] = await db
           .select(beanProjection)
@@ -165,6 +211,7 @@ export function createCoffeeTools(env: SupportAgentEnv) {
           ...bean,
           imageKey: row.imageKey ?? null,
           inventory: {
+            beanId: bean.beanId,
             availableQuantity: bean.availableQuantity,
             inStock: bean.availableQuantity > 0,
             restockEta: bean.restockEta,
@@ -177,8 +224,10 @@ export function createCoffeeTools(env: SupportAgentEnv) {
   const checkInventory = defineTool({
     name: 'check_inventory',
     description: 'Check the current stock level for one coffee bean by beanId.',
-    input: v.object({ beanId: v.number() }),
-    async run({ input }) {
+    input: beanIdInputSchema,
+    output: inventoryOutputSchema,
+    async run({ input, signal }) {
+      signal?.throwIfAborted();
       return withSupportDb(env, async (db) => {
         const [row] = await db
           .select({ availableQuantity, restockEta: coffeeInventory.restockEta })
@@ -202,15 +251,16 @@ export function createCoffeeTools(env: SupportAgentEnv) {
     description:
       'Find similar in-stock beans by roast level, tasting notes, and optional max price. Useful for alternatives or cheaper substitutes.',
     input: v.object({
-      beanId: v.optional(v.number()),
+      beanId: v.optional(v.pipe(positiveIntegerSchema, v.description('Bean id to use as the similarity seed.'))),
       roastLevel: v.optional(roastLevelSchema),
-      tastingNotes: v.optional(v.array(v.string())),
-      maxPriceInCents: v.optional(v.number()),
+      tastingNotes: v.optional(v.pipe(v.array(tastingNoteSchema), v.maxLength(5))),
+      maxPriceInCents: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000))),
       inStockOnly: v.optional(v.boolean()),
-      limit: v.optional(v.number()),
+      limit: v.optional(limitSchema),
     }),
     output: v.object({ results: v.array(beanResultSchema) }),
-    async run({ input }) {
+    async run({ input, signal }) {
+      signal?.throwIfAborted();
       let roastLevel: RoastLevel | undefined = input.roastLevel;
       let tastingNotes = input.tastingNotes;
       let maxPriceInCents = input.maxPriceInCents;
