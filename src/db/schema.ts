@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, integer, boolean, pgEnum, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // 1. Define an Enum for Roast Levels
@@ -32,6 +32,34 @@ export const coffeeBeans = pgTable('coffee_beans', {
   supplierId: integer('supplier_id').references(() => suppliers.id),
 });
 
+// 4. Inventory rows for the support agent demo.
+// Stock is intentionally modeled separately from the catalog so adding the agent
+// remains an additive, no-downtime database change.
+export const coffeeInventory = pgTable('coffee_inventory', {
+  id: serial('id').primaryKey(),
+  coffeeBeanId: integer('coffee_bean_id').notNull().references(() => coffeeBeans.id),
+  quantityAvailable: integer('quantity_available').notNull().default(0),
+  reservedQuantity: integer('reserved_quantity').notNull().default(0),
+  restockEta: timestamp('restock_eta', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('coffee_inventory_coffee_bean_id_unique').on(table.coffeeBeanId),
+]);
+
+// 5. Minimal wholesale lead capture for the support agent.
+export const wholesaleLeads = pgTable('wholesale_leads', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull(),
+  name: text('name'),
+  companyName: text('company_name'),
+  location: text('location'),
+  estimatedVolume: text('estimated_volume'),
+  originalMessage: text('original_message').notNull(),
+  agentSummary: text('agent_summary'),
+  status: text('status').notNull().default('new'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 4. Define Application Relations (for the Drizzle Query Builder)
 // This tells Drizzle how these two tables relate in your TypeScript code.
 
@@ -44,4 +72,15 @@ export const coffeeBeansRelations = relations(coffeeBeans, ({ one }) => ({
     fields: [coffeeBeans.supplierId],
     references: [suppliers.id],
   }), // A specific bean belongs to one supplier
+  inventory: one(coffeeInventory, {
+    fields: [coffeeBeans.id],
+    references: [coffeeInventory.coffeeBeanId],
+  }),
+}));
+
+export const coffeeInventoryRelations = relations(coffeeInventory, ({ one }) => ({
+  coffeeBean: one(coffeeBeans, {
+    fields: [coffeeInventory.coffeeBeanId],
+    references: [coffeeBeans.id],
+  }),
 }));
