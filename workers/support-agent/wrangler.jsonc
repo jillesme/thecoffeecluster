@@ -32,7 +32,7 @@
   },
   "vars": {
     "SUPPORT_FROM_EMAIL": "support@thecoffeecluster.com",
-    "SUPPORT_ESCALATION_EMAIL": "support@thecoffeecluster.com",
+    "SUPPORT_ESCALATION_EMAIL": "employee@thecoffeecluster.com",
     "SUPPORT_EMAIL_DRY_RUN": "false",
     "SUPPORT_AGENT_ENABLED": "true"
   },

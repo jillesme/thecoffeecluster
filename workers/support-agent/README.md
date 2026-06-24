@@ -1,12 +1,14 @@
 # Support Agent Runbook
 
-This Worker receives email for `support@thecoffeecluster.com`, dispatches each message into a Flue Durable Object-backed agent session, and sends a real email reply with Cloudflare Email Service.
+This Worker receives email for `support@thecoffeecluster.com`, dispatches each message into a Flue Durable Object-backed agent session, replies to supported customer questions, and escalates unsupported messages to `employee@thecoffeecluster.com`.
 
 The current demo flow is intentionally simple:
 
 - First wholesale inquiry: reply that wholesale is not available yet and ask conversationally whether the sender wants to be notified.
 - Follow-up opt-in in the same email thread: insert a confirmed row in `wholesale_leads` and confirm by email.
 - Follow-up decline or ambiguous reply: do not insert a lead.
+- Bean inventory/catalog inquiry: answer from database-backed tools.
+- Other unsupported emails: notify `employee@thecoffeecluster.com` and tell the customer a human will follow up.
 
 ## Important implementation notes
 
@@ -15,7 +17,7 @@ The current demo flow is intentionally simple:
 - Flue dispatches are shown to the model as a `<dispatch>` signal containing the JSON event, not as a raw user message. The agent instructions must explicitly tell the model to call `handle_support_email` for `type: "support.email.received"` dispatches.
 - Actual customer replies are sent only by trusted application code in `handle_support_email` after the model returns a validated structured decision.
 - `SUPPORT_EMAIL_DRY_RUN=false` sends real email. Keep it `true` in local/dev unless you intend to send.
-- Idempotency for duplicate inbound messages is not implemented yet. Avoid replaying the same message in production-like tests unless duplicate replies/leads are acceptable.
+- Idempotency for duplicate inbound messages is intentionally out of scope for this demo. Flue provides durable thread/session context, but production duplicate suppression should claim inbound `messageId` or raw email hash in app-owned storage before dispatch so retries cannot send duplicate replies, escalations, or lead inserts.
 
 ## Prerequisites
 
@@ -44,7 +46,7 @@ Create `workers/support-agent/.dev.vars` for local Flue/Wrangler work. Do not co
 
 ```dotenv
 SUPPORT_FROM_EMAIL=support@thecoffeecluster.com
-SUPPORT_ESCALATION_EMAIL=support@thecoffeecluster.com
+SUPPORT_ESCALATION_EMAIL=employee@thecoffeecluster.com
 SUPPORT_EMAIL_DRY_RUN=true
 SUPPORT_AGENT_ENABLED=true
 
@@ -86,7 +88,7 @@ For local safety, keep `SUPPORT_EMAIL_DRY_RUN=true`. Dry-run mode logs the reply
   ],
   "vars": {
     "SUPPORT_FROM_EMAIL": "support@thecoffeecluster.com",
-    "SUPPORT_ESCALATION_EMAIL": "support@thecoffeecluster.com",
+    "SUPPORT_ESCALATION_EMAIL": "employee@thecoffeecluster.com",
     "SUPPORT_EMAIL_DRY_RUN": "false",
     "SUPPORT_AGENT_ENABLED": "true"
   },

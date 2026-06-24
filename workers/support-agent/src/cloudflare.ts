@@ -40,6 +40,11 @@ const cloudflareHandlers = {
     const parsed = await parseSupportEmail(message.raw);
     const sessionId = await supportEmailThreadId({ from: message.from, subject: parsed.subject, messageId: parsed.messageId });
 
+    // Demo tradeoff: we rely on Flue's durable session for thread context, but we
+    // do not claim inbound message IDs in application storage before dispatch.
+    // A production version should add an idempotency table keyed by messageId or
+    // raw email hash to suppress duplicate replies, escalations, and lead inserts.
+
     if (!enabled) {
       console.log('[support-agent] email received while disabled', {
         from: message.from,

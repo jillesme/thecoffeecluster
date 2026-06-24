@@ -1,4 +1,3 @@
-import { defineTool } from '@flue/runtime';
 import * as v from 'valibot';
 import { getSupportFromEmail, isEnabled, type SupportAgentEnv } from '../shared/env';
 import { optionalHtmlBodySchema, subjectSchema, messageTextSchema } from '../shared/schemas';
@@ -8,13 +7,6 @@ export interface SupportReplyContext {
   fromEmail?: string;
   originalSubject: string;
   originalMessageId?: string;
-}
-
-export interface SupportReplyState {
-  attempted?: boolean;
-  sent?: boolean;
-  dryRun?: boolean;
-  messageId?: string;
 }
 
 export const supportReplyInputSchema = v.object({
@@ -123,25 +115,4 @@ export async function sendSupportReply(
   );
 
   return { sent: true, dryRun: false, messageId: result.messageId };
-}
-
-export function createSendSupportReplyTool(env: SupportAgentEnv, context: SupportReplyContext, state?: SupportReplyState) {
-  return defineTool({
-    name: 'send_support_reply',
-    description:
-      'Send the final customer support reply to the inbound sender. Recipient and sender are bound by trusted application code; the model supplies only subject and body. Use at most once.',
-    input: supportReplyInputSchema,
-    output: supportReplyOutputSchema,
-    async run({ input, signal }) {
-      signal?.throwIfAborted();
-      if (state?.attempted) {
-        throw new Error('Support reply was already attempted for this inbound email');
-      }
-
-      if (state) state.attempted = true;
-      const result = await sendSupportReply(env, context, input);
-      if (state) Object.assign(state, result);
-      return result;
-    },
-  });
 }

@@ -13,5 +13,5 @@ export function getSupportFromEmail(env: Pick<SupportAgentEnv, 'SUPPORT_FROM_EMA
 }
 
 export function getSupportEscalationEmail(env: Pick<SupportAgentEnv, 'SUPPORT_ESCALATION_EMAIL' | 'SUPPORT_FROM_EMAIL'>) {
-  return env.SUPPORT_ESCALATION_EMAIL || getSupportFromEmail(env);
+  return env.SUPPORT_ESCALATION_EMAIL || 'employee@thecoffeecluster.com';
 }
