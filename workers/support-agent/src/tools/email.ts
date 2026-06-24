@@ -36,6 +36,11 @@ function cleanSubject(subject: string) {
   return subject.replace(/[\r\n]+/g, ' ').trim();
 }
 
+function summarizeError(error: unknown) {
+  if (error instanceof Error) return { name: error.name, message: error.message };
+  return { message: String(error) };
+}
+
 export function replySubjectFor(originalSubject: string) {
   const subject = cleanSubject(originalSubject || '(no subject)');
   return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
@@ -50,7 +55,7 @@ export async function sendSupportReply(
   const from = context.fromEmail || getSupportFromEmail(env);
   const subject = cleanSubject(input.subject || replySubjectFor(context.originalSubject));
 
-  if (dryRun || !env.EMAIL) {
+  if (dryRun) {
     console.log('[support-agent] dry-run reply', {
       to: context.toEmail,
       from,
@@ -60,23 +65,62 @@ export async function sendSupportReply(
     return { sent: false, dryRun: true };
   }
 
-  const result = await env.EMAIL.send({
-    to: context.toEmail,
-    from: { email: from, name: 'The Coffee Cluster Support' },
-    subject,
-    text: input.text,
-    html: input.html,
-    headers: {
-      'Auto-Submitted': 'auto-replied',
-      'X-Coffee-Cluster-Agent': 'support-agent',
-      ...(context.originalMessageId
-        ? {
-            'In-Reply-To': context.originalMessageId,
-            References: context.originalMessageId,
-          }
-        : {}),
-    },
-  });
+  if (!env.EMAIL) {
+    throw new Error('SUPPORT_EMAIL_DRY_RUN=false but EMAIL binding is unavailable');
+  }
+
+  console.log(
+    JSON.stringify({
+      message: 'support reply send attempt',
+      to: context.toEmail,
+      from,
+      subject,
+      hasHtml: Boolean(input.html),
+      inReplyTo: context.originalMessageId,
+    }),
+  );
+
+  let result: Awaited<ReturnType<SendEmail['send']>>;
+  try {
+    result = await env.EMAIL.send({
+      to: context.toEmail,
+      from: { email: from, name: 'The Coffee Cluster Support' },
+      subject,
+      text: input.text,
+      html: input.html,
+      headers: {
+        'Auto-Submitted': 'auto-replied',
+        'X-Coffee-Cluster-Agent': 'support-agent',
+        ...(context.originalMessageId
+          ? {
+              'In-Reply-To': context.originalMessageId,
+              References: context.originalMessageId,
+            }
+          : {}),
+      },
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        message: 'support reply send failed',
+        to: context.toEmail,
+        from,
+        subject,
+        error: summarizeError(error),
+      }),
+    );
+    throw error;
+  }
+
+  console.log(
+    JSON.stringify({
+      message: 'support reply sent',
+      to: context.toEmail,
+      from,
+      subject,
+      messageId: result.messageId,
+    }),
+  );
 
   return { sent: true, dryRun: false, messageId: result.messageId };
 }

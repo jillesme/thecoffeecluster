@@ -62,7 +62,7 @@ export function createWholesaleLeadTool(env: SupportAgentEnv, context: Wholesale
   return defineTool({
     name: 'create_wholesale_lead',
     description:
-      'Capture interest from the inbound email sender asking about wholesale, bulk, cafe, restaurant, office, or recurring high-volume coffee supply. Customer email and original message are bound by trusted application code.',
+      'Capture confirmed opt-in from the inbound email sender for the wholesale notification shortlist. Use only after the customer has clearly said they want to be notified when wholesale becomes available. Customer email and original message are bound by trusted application code.',
     input: wholesaleLeadInputSchema,
     output: wholesaleLeadOutputSchema,
     async run({ input, signal }) {

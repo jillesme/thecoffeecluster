@@ -142,7 +142,7 @@ importers:
   workers/support-agent:
     dependencies:
       '@flue/runtime':
-        specifier: latest
+        specifier: 1.0.0-beta.5
         version: 1.0.0-beta.5(@cfworker/json-schema@4.1.1)(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(typebox@1.1.38)(typescript@5.9.3)(ws@8.20.1)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
       agents:
         specifier: ^0.14.1
@@ -160,11 +160,8 @@ importers:
         specifier: ^1.1.0
         version: 1.4.1(typescript@5.9.3)
     devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20260623.0
-        version: 4.20260624.1
       '@flue/cli':
-        specifier: latest
+        specifier: 1.0.0-beta.5
         version: 1.0.0-beta.5(@cfworker/json-schema@4.1.1)(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(@types/node@25.9.3)(esbuild@0.28.1)(hono@4.12.27)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(typebox@1.1.38)(typescript@5.9.3)(workerd@1.20260616.1)(wrangler@4.101.0(@cloudflare/workers-types@4.20260624.1))(ws@8.20.1)(yaml@2.9.0)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
       '@types/node':
         specifier: ^25.9.3

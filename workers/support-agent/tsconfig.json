@@ -5,8 +5,8 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["@cloudflare/workers-types", "node"]
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["worker-configuration.d.ts", "src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

@@ -43,7 +43,7 @@ export function createHandleSupportEmailAction(env: SupportAgentEnv) {
   return defineAction({
     name: 'handle_support_email',
     description:
-      'Reliably handle one inbound support email: answer catalog/inventory questions, capture wholesale interest, request human escalation when needed, and send exactly one final reply.',
+      'Reliably handle one inbound support email: answer catalog/inventory questions, ask for wholesale opt-in before capturing leads, request human escalation when needed, and send exactly one final reply.',
     input: handleSupportEmailInputSchema,
     output: handleSupportEmailOutputSchema,
     async run({ harness, input, log }) {
@@ -69,7 +69,18 @@ export function createHandleSupportEmailAction(env: SupportAgentEnv) {
       const decision = await session.prompt(
         `Process this inbound support email for The Coffee Cluster.
 
-Use catalog and inventory tools for all coffee facts. If this is a wholesale, bulk, cafe, office, restaurant, or recurring high-volume inquiry, use create_wholesale_lead with only customer-provided details and include the same wholesaleLead object in your final structured result. If it needs human escalation, use request_human_escalation and include the same escalation object in your final structured result.
+Use catalog and inventory tools for all coffee facts.
+
+Wholesale workflow:
+- The Coffee Cluster does not currently offer wholesale ordering.
+- This session is durable for the email thread, so use the previous conversation in this session to decide whether the customer is replying to an earlier wholesale opt-in invitation.
+- For a first wholesale, bulk, cafe, office, restaurant, or recurring high-volume inquiry, do not call create_wholesale_lead and do not include wholesaleLead. Reply naturally that wholesale is not available yet, and ask whether they would like to be notified when that changes.
+- Keep the opt-in question human and conversational. Do not say "please reply yes or no" and do not use the phrase "yes or no".
+- If this email clearly accepts a previous opt-in invitation in this same thread, use create_wholesale_lead with only customer-provided details and include the same wholesaleLead object in your final structured result. Then confirm they are on the short notification list.
+- If the customer declines or does not clearly opt in, do not call create_wholesale_lead and do not include wholesaleLead. For ambiguous replies, ask a brief natural clarification.
+- Do not promise pricing, discounts, launch dates, supply levels, contracts, or availability.
+
+If it needs human escalation, use request_human_escalation and include the same escalation object in your final structured result.
 
 Do not call handle_support_email from inside this Action. Do not send the customer reply yourself; trusted application code will send exactly one final reply after your structured result is validated.
 
@@ -78,7 +89,7 @@ ${JSON.stringify(input, null, 2)}
 
 Return a structured result with:
 - reply: the final customer reply subject and plain text body; use "${replySubjectFor(input.subject)}" unless a clearer reply subject is needed.
-- wholesaleLead: include only when wholesale interest should be captured.
+- wholesaleLead: include only when the customer clearly opted in to be notified after a previous wholesale invitation in this thread.
 - escalation: include only when a human escalation should be requested.
 - summary: concise internal summary of the handled email.`,
         {
@@ -124,14 +135,17 @@ Return a structured result with:
         dryRun: reply.dryRun,
       });
 
-      return {
+      const output: v.InferOutput<typeof handleSupportEmailOutputSchema> = {
         handled: true,
         replied: true,
         escalated,
-        wholesaleLeadId,
-        replyMessageId: reply.messageId,
         summary: decision.data.summary,
       };
+
+      if (wholesaleLeadId !== undefined) output.wholesaleLeadId = wholesaleLeadId;
+      if (reply.messageId !== undefined) output.replyMessageId = reply.messageId;
+
+      return output;
     },
   });
 }

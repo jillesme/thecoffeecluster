@@ -1,10 +1,13 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "the-coffee-cluster-support-agent",
-  "compatibility_date": "2026-06-23",
+  "compatibility_date": "2026-06-24",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    }
   },
   "ai": {
     "binding": "AI"
@@ -12,7 +15,8 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "remote": true
+      "remote": true,
+      "allowed_sender_addresses": ["support@thecoffeecluster.com"]
     }
   ],
   "hyperdrive": [
@@ -29,8 +33,8 @@
   "vars": {
     "SUPPORT_FROM_EMAIL": "support@thecoffeecluster.com",
     "SUPPORT_ESCALATION_EMAIL": "support@thecoffeecluster.com",
-    "SUPPORT_EMAIL_DRY_RUN": "true",
-    "SUPPORT_AGENT_ENABLED": "false"
+    "SUPPORT_EMAIL_DRY_RUN": "false",
+    "SUPPORT_AGENT_ENABLED": "true"
   },
   "migrations": [
     {
