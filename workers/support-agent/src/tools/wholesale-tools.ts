@@ -1,7 +1,8 @@
 import { defineTool } from '@flue/runtime';
 import * as v from 'valibot';
-import { withSupportClient } from '../db';
+import { withSupportDb } from '../db';
 import type { SupportAgentEnv } from '../env';
+import { wholesaleLeads, type NewWholesaleLead } from '../../../../src/db/schema';
 
 export function createWholesaleTools(env: SupportAgentEnv) {
   return [
@@ -20,27 +21,24 @@ export function createWholesaleTools(env: SupportAgentEnv) {
       }),
       output: v.object({ leadId: v.number(), status: v.string() }),
       async run({ input }) {
-        return withSupportClient(env, async (client) => {
-          const result = await client.query<{ id: number; status: string }>(
-            `
-              insert into wholesale_leads
-                (email, name, company_name, location, estimated_volume, original_message, agent_summary, status)
-              values ($1, $2, $3, $4, $5, $6, $7, 'new')
-              returning id, status
-            `,
-            [
-              input.email,
-              input.name ?? null,
-              input.companyName ?? null,
-              input.location ?? null,
-              input.estimatedVolume ?? null,
-              input.originalMessage,
-              input.agentSummary,
-            ],
-          );
+        return withSupportDb(env, async (db) => {
+          const leadValues: NewWholesaleLead = {
+            email: input.email,
+            name: input.name ?? null,
+            companyName: input.companyName ?? null,
+            location: input.location ?? null,
+            estimatedVolume: input.estimatedVolume ?? null,
+            originalMessage: input.originalMessage,
+            agentSummary: input.agentSummary,
+            status: 'new',
+          };
 
-          const lead = result.rows[0];
-          return { leadId: Number(lead.id), status: lead.status };
+          const [lead] = await db
+            .insert(wholesaleLeads)
+            .values(leadValues)
+            .returning({ id: wholesaleLeads.id, status: wholesaleLeads.status });
+
+          return { leadId: lead.id, status: lead.status };
         });
       },
     }),

@@ -4,6 +4,7 @@ import { relations } from 'drizzle-orm';
 // 1. Define an Enum for Roast Levels
 // This restricts the column to specific values, preventing bad data.
 export const roastEnum = pgEnum('roast_level', ['Light', 'Medium', 'Dark', 'Espresso']);
+export type RoastLevel = (typeof roastEnum.enumValues)[number];
 
 // 2. Create the Suppliers Table (The "Parent")
 export const suppliers = pgTable('suppliers', {
@@ -84,3 +85,9 @@ export const coffeeInventoryRelations = relations(coffeeInventory, ({ one }) => 
     references: [coffeeBeans.id],
   }),
 }));
+
+export type Supplier = typeof suppliers.$inferSelect;
+export type CoffeeBean = typeof coffeeBeans.$inferSelect;
+export type CoffeeInventory = typeof coffeeInventory.$inferSelect;
+export type WholesaleLead = typeof wholesaleLeads.$inferSelect;
+export type NewWholesaleLead = typeof wholesaleLeads.$inferInsert;

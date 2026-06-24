@@ -18,9 +18,14 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "2fd136c2498f4a60a780fa70d61ec8b2"
+      // Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+      // in workers/support-agent/.dev.vars instead of committing credentials here.
+      "id": "d3a2db789ace440eb99d93e8d7fb88c9"
     }
   ],
+  "placement": {
+    "region": "aws:eu-central-1"
+  },
   "vars": {
     "SUPPORT_FROM_EMAIL": "support@thecoffeecluster.com",
     "SUPPORT_ESCALATION_EMAIL": "support@thecoffeecluster.com",

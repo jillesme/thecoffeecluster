@@ -1,7 +1,17 @@
 import { defineTool } from '@flue/runtime';
+import { and, asc, desc, eq, gt, ilike, lte, ne, sql, type SQL } from 'drizzle-orm';
 import * as v from 'valibot';
-import { withSupportClient } from '../db';
+import { withSupportDb } from '../db';
 import type { SupportAgentEnv } from '../env';
+import {
+  coffeeBeans,
+  coffeeInventory,
+  suppliers,
+  type CoffeeBean,
+  type CoffeeInventory,
+  type RoastLevel,
+  type Supplier,
+} from '../../../../src/db/schema';
 
 const roastLevelSchema = v.picklist(['Light', 'Medium', 'Dark', 'Espresso']);
 
@@ -9,7 +19,7 @@ const beanResultSchema = v.object({
   beanId: v.number(),
   name: v.string(),
   description: v.nullable(v.string()),
-  roastLevel: v.nullable(v.string()),
+  roastLevel: v.nullable(roastLevelSchema),
   tastingNotes: v.array(v.string()),
   priceInCents: v.number(),
   supplierName: v.nullable(v.string()),
@@ -19,31 +29,46 @@ const beanResultSchema = v.object({
   restockEta: v.nullable(v.string()),
 });
 
-interface BeanSearchInput {
-  roastLevel?: 'Light' | 'Medium' | 'Dark' | 'Espresso';
-  originCountry?: string;
-  tastingNotes?: string[];
-  maxPriceInCents?: number;
-  fairTradeOnly?: boolean;
-  inStockOnly?: boolean;
-  excludeBeanId?: number;
-  limit?: number;
-}
+const beanSearchInputSchema = v.object({
+  roastLevel: v.optional(roastLevelSchema),
+  originCountry: v.optional(v.string()),
+  tastingNotes: v.optional(v.array(v.string())),
+  maxPriceInCents: v.optional(v.number()),
+  fairTradeOnly: v.optional(v.boolean()),
+  inStockOnly: v.optional(v.boolean()),
+  limit: v.optional(v.number()),
+});
 
-interface BeanRow {
-  bean_id: number;
-  name: string;
-  description: string | null;
-  roast_level: string | null;
-  tasting_notes: string | null;
-  price_in_cents: number;
-  image_key?: string | null;
-  supplier_name: string | null;
-  supplier_country: string | null;
-  is_fair_trade: boolean | null;
-  available_quantity: number | string | null;
-  restock_eta: Date | string | null;
-}
+type BeanResult = v.InferOutput<typeof beanResultSchema>;
+type BeanSearchInput = v.InferOutput<typeof beanSearchInputSchema> & { excludeBeanId?: CoffeeBean['id'] };
+type BeanProjection = Pick<
+  CoffeeBean,
+  'name' | 'description' | 'imageKey' | 'roastLevel' | 'tastingNotes' | 'priceInCents'
+> & {
+  beanId: CoffeeBean['id'];
+  supplierName: Supplier['name'] | null;
+  supplierCountry: Supplier['country'] | null;
+  isFairTrade: Supplier['isFairTrade'] | null;
+  availableQuantity: number | string | null;
+  restockEta: CoffeeInventory['restockEta'] | string | null;
+};
+
+const availableQuantity = sql<number>`coalesce(${coffeeInventory.quantityAvailable}, 0) - coalesce(${coffeeInventory.reservedQuantity}, 0)`;
+
+const beanProjection = {
+  beanId: coffeeBeans.id,
+  name: coffeeBeans.name,
+  description: coffeeBeans.description,
+  imageKey: coffeeBeans.imageKey,
+  roastLevel: coffeeBeans.roastLevel,
+  tastingNotes: coffeeBeans.tastingNotes,
+  priceInCents: coffeeBeans.priceInCents,
+  supplierName: suppliers.name,
+  supplierCountry: suppliers.country,
+  isFairTrade: suppliers.isFairTrade,
+  availableQuantity,
+  restockEta: coffeeInventory.restockEta,
+};
 
 function notesToArray(notes: string | null) {
   return notes
@@ -59,70 +84,51 @@ function toIso(value: Date | string | null) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function mapBeanRow(row: BeanRow) {
+function clampLimit(limit: number | undefined, fallback = 5) {
+  return Math.min(Math.max(Math.trunc(limit ?? fallback), 1), 10);
+}
+
+function mapBean(row: BeanProjection): BeanResult {
   return {
-    beanId: Number(row.bean_id),
+    beanId: row.beanId,
     name: row.name,
     description: row.description,
-    roastLevel: row.roast_level,
-    tastingNotes: notesToArray(row.tasting_notes),
-    priceInCents: Number(row.price_in_cents),
-    supplierName: row.supplier_name,
-    supplierCountry: row.supplier_country,
-    isFairTrade: Boolean(row.is_fair_trade),
-    availableQuantity: Number(row.available_quantity ?? 0),
-    restockEta: toIso(row.restock_eta),
+    roastLevel: row.roastLevel,
+    tastingNotes: notesToArray(row.tastingNotes),
+    priceInCents: row.priceInCents,
+    supplierName: row.supplierName,
+    supplierCountry: row.supplierCountry,
+    isFairTrade: Boolean(row.isFairTrade),
+    availableQuantity: Number(row.availableQuantity ?? 0),
+    restockEta: toIso(row.restockEta),
   };
 }
 
 async function runBeanSearch(env: SupportAgentEnv, input: BeanSearchInput) {
-  return withSupportClient(env, async (client) => {
-    const params: unknown[] = [];
-    const where: string[] = [];
+  return withSupportDb(env, async (db) => {
+    const where: SQL[] = [];
 
-    function addParam(value: unknown) {
-      params.push(value);
-      return `$${params.length}`;
-    }
-
-    if (input.roastLevel) where.push(`cb.roast_level = ${addParam(input.roastLevel)}`);
-    if (input.originCountry) where.push(`s.country ILIKE ${addParam(input.originCountry)}`);
-    if (input.maxPriceInCents) where.push(`cb.price_in_cents <= ${addParam(input.maxPriceInCents)}`);
-    if (input.fairTradeOnly) where.push('s.is_fair_trade = true');
-    if (input.inStockOnly) where.push('(coalesce(ci.quantity_available, 0) - coalesce(ci.reserved_quantity, 0)) > 0');
-    if (input.excludeBeanId) where.push(`cb.id <> ${addParam(input.excludeBeanId)}`);
+    if (input.roastLevel) where.push(eq(coffeeBeans.roastLevel, input.roastLevel));
+    if (input.originCountry) where.push(ilike(suppliers.country, `%${input.originCountry}%`));
+    if (input.maxPriceInCents != null) where.push(lte(coffeeBeans.priceInCents, input.maxPriceInCents));
+    if (input.fairTradeOnly) where.push(eq(suppliers.isFairTrade, true));
+    if (input.inStockOnly) where.push(gt(availableQuantity, 0));
+    if (input.excludeBeanId) where.push(ne(coffeeBeans.id, input.excludeBeanId));
 
     for (const note of input.tastingNotes ?? []) {
-      where.push(`cb.tasting_notes ILIKE ${addParam(`%${note}%`)}`);
+      where.push(ilike(coffeeBeans.tastingNotes, `%${note}%`));
     }
 
-    const limit = Math.min(input.limit ?? 5, 10);
-    const result = await client.query<BeanRow>(
-      `
-        select
-          cb.id as bean_id,
-          cb.name,
-          cb.description,
-          cb.roast_level,
-          cb.tasting_notes,
-          cb.price_in_cents,
-          cb.image_key,
-          s.name as supplier_name,
-          s.country as supplier_country,
-          s.is_fair_trade,
-          coalesce(ci.quantity_available, 0) - coalesce(ci.reserved_quantity, 0) as available_quantity,
-          ci.restock_eta
-        from coffee_beans cb
-        left join suppliers s on s.id = cb.supplier_id
-        left join coffee_inventory ci on ci.coffee_bean_id = cb.id
-        ${where.length ? `where ${where.join(' and ')}` : ''}
-        order by available_quantity desc, cb.price_in_cents asc
-        limit ${addParam(limit)}
-      `,
-      params,
-    );
+    const rows = await db
+      .select(beanProjection)
+      .from(coffeeBeans)
+      .leftJoin(suppliers, eq(suppliers.id, coffeeBeans.supplierId))
+      .leftJoin(coffeeInventory, eq(coffeeInventory.coffeeBeanId, coffeeBeans.id))
+      .where(where.length > 0 ? and(...where) : undefined)
+      .orderBy(desc(availableQuantity), asc(coffeeBeans.priceInCents))
+      .limit(clampLimit(input.limit));
 
-    return result.rows.map(mapBeanRow);
+    return rows.map(mapBean);
   });
 }
 
@@ -131,15 +137,7 @@ export function createCoffeeTools(env: SupportAgentEnv) {
     name: 'search_coffee_beans',
     description:
       'Search the coffee catalog with supplier and inventory data. Use this before answering product, origin, roast, price, fair-trade, or stock questions.',
-    input: v.object({
-      roastLevel: v.optional(roastLevelSchema),
-      originCountry: v.optional(v.string()),
-      tastingNotes: v.optional(v.array(v.string())),
-      maxPriceInCents: v.optional(v.number()),
-      fairTradeOnly: v.optional(v.boolean()),
-      inStockOnly: v.optional(v.boolean()),
-      limit: v.optional(v.number()),
-    }),
+    input: beanSearchInputSchema,
     output: v.object({ results: v.array(beanResultSchema) }),
     async run({ input }) {
       return { results: await runBeanSearch(env, input) };
@@ -151,38 +149,21 @@ export function createCoffeeTools(env: SupportAgentEnv) {
     description: 'Get detailed catalog, supplier, and inventory information for one coffee bean by beanId.',
     input: v.object({ beanId: v.number() }),
     async run({ input }) {
-      return withSupportClient(env, async (client) => {
-        const result = await client.query<BeanRow>(
-          `
-            select
-              cb.id as bean_id,
-              cb.name,
-              cb.description,
-              cb.roast_level,
-              cb.tasting_notes,
-              cb.price_in_cents,
-              cb.image_key,
-              s.name as supplier_name,
-              s.country as supplier_country,
-              s.is_fair_trade,
-              coalesce(ci.quantity_available, 0) - coalesce(ci.reserved_quantity, 0) as available_quantity,
-              ci.restock_eta
-            from coffee_beans cb
-            left join suppliers s on s.id = cb.supplier_id
-            left join coffee_inventory ci on ci.coffee_bean_id = cb.id
-            where cb.id = $1
-            limit 1
-          `,
-          [input.beanId],
-        );
+      return withSupportDb(env, async (db) => {
+        const [row] = await db
+          .select(beanProjection)
+          .from(coffeeBeans)
+          .leftJoin(suppliers, eq(suppliers.id, coffeeBeans.supplierId))
+          .leftJoin(coffeeInventory, eq(coffeeInventory.coffeeBeanId, coffeeBeans.id))
+          .where(eq(coffeeBeans.id, input.beanId))
+          .limit(1);
 
-        const row = result.rows[0];
         if (!row) return { found: false };
-        const bean = mapBeanRow(row);
+        const bean = mapBean(row);
         return {
           found: true,
           ...bean,
-          imageKey: row.image_key ?? null,
+          imageKey: row.imageKey ?? null,
           inventory: {
             availableQuantity: bean.availableQuantity,
             inStock: bean.availableQuantity > 0,
@@ -198,29 +179,19 @@ export function createCoffeeTools(env: SupportAgentEnv) {
     description: 'Check the current stock level for one coffee bean by beanId.',
     input: v.object({ beanId: v.number() }),
     async run({ input }) {
-      return withSupportClient(env, async (client) => {
-        const result = await client.query<{
-          available_quantity: number | string | null;
-          restock_eta: Date | string | null;
-        }>(
-          `
-            select
-              coalesce(quantity_available, 0) - coalesce(reserved_quantity, 0) as available_quantity,
-              restock_eta
-            from coffee_inventory
-            where coffee_bean_id = $1
-            limit 1
-          `,
-          [input.beanId],
-        );
+      return withSupportDb(env, async (db) => {
+        const [row] = await db
+          .select({ availableQuantity, restockEta: coffeeInventory.restockEta })
+          .from(coffeeInventory)
+          .where(eq(coffeeInventory.coffeeBeanId, input.beanId))
+          .limit(1);
 
-        const row = result.rows[0];
-        const availableQuantity = Number(row?.available_quantity ?? 0);
+        const currentAvailability = Number(row?.availableQuantity ?? 0);
         return {
           beanId: input.beanId,
-          availableQuantity,
-          inStock: availableQuantity > 0,
-          restockEta: toIso(row?.restock_eta ?? null),
+          availableQuantity: currentAvailability,
+          inStock: currentAvailability > 0,
+          restockEta: toIso(row?.restockEta ?? null),
         };
       });
     },
@@ -240,21 +211,27 @@ export function createCoffeeTools(env: SupportAgentEnv) {
     }),
     output: v.object({ results: v.array(beanResultSchema) }),
     async run({ input }) {
-      let roastLevel = input.roastLevel;
+      let roastLevel: RoastLevel | undefined = input.roastLevel;
       let tastingNotes = input.tastingNotes;
       let maxPriceInCents = input.maxPriceInCents;
 
-      if (input.beanId) {
-        await withSupportClient(env, async (client) => {
-          const result = await client.query<{
-            roast_level: 'Light' | 'Medium' | 'Dark' | 'Espresso' | null;
-            tasting_notes: string | null;
-            price_in_cents: number;
-          }>('select roast_level, tasting_notes, price_in_cents from coffee_beans where id = $1 limit 1', [input.beanId]);
-          const bean = result.rows[0];
-          roastLevel ??= bean?.roast_level ?? undefined;
-          tastingNotes ??= notesToArray(bean?.tasting_notes ?? null).slice(0, 2);
-          maxPriceInCents ??= bean?.price_in_cents;
+      const beanId = input.beanId;
+
+      if (beanId) {
+        await withSupportDb(env, async (db) => {
+          const [bean] = await db
+            .select({
+              roastLevel: coffeeBeans.roastLevel,
+              tastingNotes: coffeeBeans.tastingNotes,
+              priceInCents: coffeeBeans.priceInCents,
+            })
+            .from(coffeeBeans)
+            .where(eq(coffeeBeans.id, beanId))
+            .limit(1);
+
+          roastLevel ??= bean?.roastLevel ?? undefined;
+          tastingNotes ??= notesToArray(bean?.tastingNotes ?? null).slice(0, 2);
+          maxPriceInCents ??= bean?.priceInCents;
         });
       }
 
@@ -264,7 +241,7 @@ export function createCoffeeTools(env: SupportAgentEnv) {
           tastingNotes,
           maxPriceInCents,
           inStockOnly: input.inStockOnly ?? true,
-          excludeBeanId: input.beanId,
+          excludeBeanId: beanId,
           limit: input.limit ?? 5,
         }),
       };

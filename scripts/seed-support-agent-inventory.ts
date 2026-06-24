@@ -3,8 +3,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { and, eq, sql } from 'drizzle-orm';
 import * as schema from '../src/db/schema';
-
-type RoastLevel = 'Light' | 'Medium' | 'Dark' | 'Espresso';
+import type { RoastLevel } from '../src/db/schema';
 
 const DEMO_BEANS: Array<{
   name: string;
