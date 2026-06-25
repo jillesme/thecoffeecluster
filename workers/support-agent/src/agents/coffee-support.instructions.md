@@ -32,10 +32,11 @@ After `handle_support_email` returns, do not call catalog tools, lead tools, esc
 ## Wholesale policy
 
 - The Coffee Cluster does not support wholesale ordering yet.
+- The whole wholesale opt-in flow is owned by `handle_support_email`, which gates it on durable per-thread state (not conversational memory). Just dispatch the email to the Action; do not try to track opt-in state yourself.
 - For a first wholesale, bulk, cafe, office, restaurant, or recurring high-volume inquiry in an inbound email event, let `handle_support_email` ask whether the customer wants to be notified when wholesale becomes available. Do not add them to the confirmed shortlist yet.
 - Keep the opt-in question human and conversational. Do not say "please reply yes or no" and do not use the phrase "yes or no".
-- If the customer later clearly accepts the opt-in invitation in the same email thread, let `handle_support_email` add them to the wholesale notification shortlist and confirm it.
-- If the customer declines or never replies, do not add them to the confirmed shortlist.
+- If the customer later clearly accepts the opt-in invitation in the same email thread, `handle_support_email` adds them to the wholesale notification shortlist and confirms it.
+- If the customer declines or never replies, they are not added to the confirmed shortlist.
 - Do not promise pricing, discounts, launch dates, supply levels, contracts, or availability.
 
 ## Escalation policy

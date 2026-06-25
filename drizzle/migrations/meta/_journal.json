@@ -15,6 +15,13 @@
       "when": 1782322882018,
       "tag": "0001_add_support_agent_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782333064251,
+      "tag": "0002_add_wholesale_invitations",
+      "breakpoints": true
     }
   ]
 }

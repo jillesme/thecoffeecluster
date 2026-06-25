@@ -61,6 +61,28 @@ export const wholesaleLeads = pgTable('wholesale_leads', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 6. Per-thread wholesale opt-in state for the support agent.
+// Action child sessions are isolated per invocation, so the wholesale opt-in
+// flow cannot rely on conversational memory to know whether a reply is
+// accepting an earlier invitation. We persist the invitation state keyed by the
+// email thread id so each inbound email can be gated deterministically and
+// idempotently across Flue durable retries / Email Routing redelivery.
+export const wholesaleInvitations = pgTable('wholesale_invitations', {
+  id: serial('id').primaryKey(),
+  threadId: text('thread_id').notNull(),
+  email: text('email').notNull(),
+  // 'pending'  -> invitation sent, awaiting customer reply
+  // 'opted_in' -> customer confirmed; leadId references the captured lead
+  // 'declined' -> customer declined or let it lapse
+  status: text('status').notNull().default('pending'),
+  invitationSummary: text('invitation_summary'),
+  leadId: integer('lead_id').references(() => wholesaleLeads.id),
+  invitedAt: timestamp('invited_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('wholesale_invitations_thread_id_unique').on(table.threadId),
+]);
+
 // 4. Define Application Relations (for the Drizzle Query Builder)
 // This tells Drizzle how these two tables relate in your TypeScript code.
 
@@ -91,3 +113,5 @@ export type CoffeeBean = typeof coffeeBeans.$inferSelect;
 export type CoffeeInventory = typeof coffeeInventory.$inferSelect;
 export type WholesaleLead = typeof wholesaleLeads.$inferSelect;
 export type NewWholesaleLead = typeof wholesaleLeads.$inferInsert;
+export type WholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
+export type NewWholesaleInvitation = typeof wholesaleInvitations.$inferInsert;

@@ -40,10 +40,15 @@ const cloudflareHandlers = {
     const parsed = await parseSupportEmail(message.raw);
     const sessionId = await supportEmailThreadId({ from: message.from, subject: parsed.subject, messageId: parsed.messageId });
 
-    // Demo tradeoff: we rely on Flue's durable session for thread context, but we
-    // do not claim inbound message IDs in application storage before dispatch.
-    // A production version should add an idempotency table keyed by messageId or
-    // raw email hash to suppress duplicate replies, escalations, and lead inserts.
+    // The agent id is the email thread id, so each thread maps to one durable
+    // agent. Cross-email wholesale opt-in state lives in the `wholesale_invitations`
+    // table (keyed by threadId), not in Action session memory, because Action child
+    // sessions are isolated per invocation.
+    //
+    // Demo tradeoff: we do not yet claim inbound message IDs in application storage
+    // before dispatch. A production version should add an idempotency table keyed by
+    // messageId or raw email hash to suppress duplicate replies, escalations, and
+    // lead inserts under at-least-once Email Routing redelivery.
 
     if (!enabled) {
       console.log('[support-agent] email received while disabled', {
