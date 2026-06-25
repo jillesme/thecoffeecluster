@@ -1,0 +1,45 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "the-coffee-cluster-support-agent",
+  "compatibility_date": "2026-06-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    }
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true,
+      "allowed_sender_addresses": ["support@thecoffeecluster.com"]
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+      // in workers/support-agent/.dev.vars instead of committing credentials here.
+      "id": "d3a2db789ace440eb99d93e8d7fb88c9"
+    }
+  ],
+  "placement": {
+    "region": "aws:eu-central-1"
+  },
+  "vars": {
+    "SUPPORT_FROM_EMAIL": "support@thecoffeecluster.com",
+    "SUPPORT_ESCALATION_EMAIL": "employee@thecoffeecluster.com",
+    "SUPPORT_EMAIL_DRY_RUN": "false",
+    "SUPPORT_AGENT_ENABLED": "true"
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["FlueRegistry", "FlueCoffeeSupportAgent"]
+    }
+  ]
+}

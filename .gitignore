@@ -54,3 +54,7 @@ next-env.d.ts
 
 .env*
 /dist/
+workers/*/dist/
+workers/*/.flue-vite/
+workers/*/.flue-vite.wrangler.jsonc
+workers/*/node_modules/

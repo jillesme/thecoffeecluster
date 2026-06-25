@@ -1,0 +1,30 @@
+{
+  "name": "@the-coffee-cluster/support-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "flue dev --target cloudflare",
+    "build": "flue build --target cloudflare",
+    "cf-typegen": "wrangler types worker-configuration.d.ts --config wrangler.jsonc --env-file=/dev/null --strict-vars=false",
+    "deploy": "flue build --target cloudflare && wrangler deploy --config dist/the_coffee_cluster_support_agent/wrangler.json",
+    "dry-run": "flue build --target cloudflare && wrangler deploy --dry-run --config dist/the_coffee_cluster_support_agent/wrangler.json",
+    "run": "flue run --target cloudflare coffee-support",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flue/runtime": "1.0.0-beta.5",
+    "agents": "^0.14.1",
+    "hono": "^4.10.7",
+    "pg": "^8.21.0",
+    "postal-mime": "^2.6.2",
+    "valibot": "^1.1.0"
+  },
+  "devDependencies": {
+    "@flue/cli": "1.0.0-beta.5",
+    "@types/node": "^25.9.3",
+    "@types/pg": "^8.15.6",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.101.0"
+  }
+}
